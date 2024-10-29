@@ -107,8 +107,6 @@ def main():
 
                         # ONE ISSUE FOR POP: Check if something exists in list. If not, dont pop.
 
-
-
                         link = degree[1]
                         requirements = requests.get(link)
                         # print(classes_and_requirements)
@@ -117,13 +115,19 @@ def main():
                             portfolios = soup.find('td', attrs={'colspan':'4', 'class':'width' })
                             all_info = portfolios.find('div', attrs={'class':'custom_leftpad_20'})
                             # get all acalog-cores (first thru. fourth years)
-                            all_acalog_cores = all_info.findAll('div', attrs={'class':'acalog-core'}, recursive=False)[0:4]
                             all_leftpads = all_info.findAll('div', attrs={'class':'custom_leftpad_20'}, recursive=False)[0:4]
                             for i in range(4):
+                                arch_sem = []
                                 fall_sem = []
                                 spring_sem = []
+                                arch_classes = []
                                 fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
                                 spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+
+                                if i == 2:
+                                    arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
+                                    fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+                                    spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[2].find('ul').findAll('li')
 
                                 if i == 0:
                                     index = 0
@@ -208,7 +212,6 @@ def main():
                                     classes_and_requirements[degree[0]]["First Year"]["Fall"] = fall_sem
                                     classes_and_requirements[degree[0]]["First Year"]["Spring"] = spring_sem
                                     # print(classes_and_requirements)
-
                                 elif i == 1:
                                     # print("Sophomore year loading")
                                     index = 0
@@ -295,9 +298,14 @@ def main():
                                     # sys.exit(1)
 
 
+
+
                                 # TO DO
                                 # Arch semesters are different. Approach must be different.
                                 elif i == 2:
+                                    print(arch_classes)
+                                    print(arch_sem)
+                                    return
                                     index = 0
                                     while index < len(fall_classes):
                                         class_and_credits = fall_classes[index].get_text()
@@ -378,8 +386,13 @@ def main():
                                     classes_and_requirements[degree[0]]["Third Year"]["Fall"] = fall_sem
                                     classes_and_requirements[degree[0]]["Third Year"]["Spring"] = spring_sem
 
+
+
+
+
+
+
                                 else:
-                                    # print("Sophomore year loading")
                                     index = 0
                                     while index < len(fall_classes):
                                         class_and_credits = fall_classes[index].get_text()
