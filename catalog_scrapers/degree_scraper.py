@@ -105,9 +105,7 @@ def main():
                             }
                         }
 
-                        # ONE ISSUE FOR POP: Check if something exists in list. If not, dont pop.
-
-
+                        # ONE ISSUE FOR POP: Check if something exists in list. If not, dont pop
 
                         link = degree[1]
                         requirements = requests.get(link)
@@ -247,6 +245,7 @@ def main():
                                                 or_classes.append(class_item + ":" + str(credits_per_class))
                                                 fall_sem.append(or_classes)
                                                 index += 2
+                                                # testign
                                             else:
                                                 index += 1
                                     # do the same thing with spring classes
