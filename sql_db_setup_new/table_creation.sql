@@ -118,14 +118,14 @@ CREATE TABLE IF NOT EXISTS course_attribute(
     dept VARCHAR(4) NOT NULL,
     code_num SMALLINT NOT NULL,
     attr ENUM(
-        'CI',
-        'Capstone',
-        'DI1',
-        'DI2',
-        'WI',
-        'HASS Inq',
-        'Intro Course',
-        'PDII Option'
+        'Communication Intensive',
+        'Culminating Exp/Capstone',
+        'Data Intensive I',
+        'Data Intensive II',
+        'Writing Intensive',
+        'HASS Inquiry',
+        'Introductory Level Course',
+        'PDII Option for Engr Majors'
     ) NOT NULL,
     CONSTRAINT pk_course_attribute
         PRIMARY KEY(dept, code_num, attr),
