@@ -2,7 +2,6 @@ from bs4 import BeautifulSoup
 import requests
 import sys
 
-
 # def main():
 #     baseURL = 'https://glasswing.vc/our-companies/'
 #     storage = []
@@ -118,6 +117,7 @@ def main():
                             all_acalog_cores = all_info.findAll('div', attrs={'class':'acalog-core'}, recursive=False)[0:4]
                             all_leftpads = all_info.findAll('div', attrs={'class':'custom_leftpad_20'}, recursive=False)[0:4]
                             for i in range(4):
+                                arch_sem = []
                                 fall_sem = []
                                 spring_sem = []
                                 fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
@@ -294,9 +294,54 @@ def main():
                                     # sys.exit(1)
 
 
+
+
                                 # TO DO
                                 # Arch semesters are different. Approach must be different.
                                 elif i == 2:
+                                    arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
+                                    fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+                                    spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[2].find('ul').findAll('li')
+
+                                    index = 0
+                                    while index < len(arch_classes):
+                                        class_and_credits = arch_classes[index].get_text()
+                                        try:
+                                            test = class_and_credits.index(":")
+                                            # Proceed with the logic if the colon is found
+                                            # For example, split the string
+                                            class_item = class_and_credits[0:test - 13]
+                                            credits_per_class = class_and_credits[test + 2:test + 3]
+                                            arch_sem.append(class_item + ":" + str(credits_per_class))
+                                            index += 1
+                                        except ValueError:
+                                            # Skip the item or handle it in case of missing colon
+                                            # print("Colon not found, skipping this entry.")
+                                            if class_and_credits == "or":
+                                                or_classes = []
+                                                if len(arch_sem) > 0:
+                                                    arch_sem.pop(len(arch_sem) - 1)
+                                                first_choice = arch_classes[index - 1].get_text()
+
+                                                test = first_choice.index(":")
+                                                # Proceed with the logic if the colon is found
+                                                # For example, split the string
+                                                class_item = first_choice[0:test - 13]
+                                                credits_per_class = first_choice[test + 2:test + 3]
+                                                or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                second_choice = arch_classes[index + 1].get_text()
+                                                test = second_choice.index(":")
+                                                # Proceed with the logic if the colon is found
+                                                # For example, split the string
+                                                class_item = second_choice[0:test]
+                                                credits_per_class = second_choice[test + 2:test + 3]
+                                                or_classes.append(class_item + ":" + str(credits_per_class))
+                                                arch_sem.append(or_classes)
+                                                index += 2
+                                            else:
+                                                index += 1
+                                    # fall classes
                                     index = 0
                                     while index < len(fall_classes):
                                         class_and_credits = fall_classes[index].get_text()
@@ -376,6 +421,11 @@ def main():
                                                 index += 1
                                     classes_and_requirements[degree[0]]["Third Year"]["Fall"] = fall_sem
                                     classes_and_requirements[degree[0]]["Third Year"]["Spring"] = spring_sem
+
+
+
+
+
 
                                 else:
                                     # print("Sophomore year loading")
@@ -461,6 +511,30 @@ def main():
                                     classes_and_requirements[degree[0]]["Fourth Year"]["Spring"] = spring_sem
                             # return
                         # print(classes_and_requirements)
+            
+            if storage_p[index_of_degree] == "Doctoral":
+                print("Ph.D")
+                soup = BeautifulSoup(pageToScrape.text, 'html.parser')
+                portfolios = soup.find('td', attrs={'class':'block_content', 'colspan':'2'})
+
+                # get all the degree names
+                p_names = portfolios.findAll('p', attrs={'style':'padding-left: 30px'})
+                for name in p_names:
+                    strong = name.find('strong').get_text()
+                    storage_p.append(strong)
+
+                
+                # get all the degree links and names of degrees
+                degree_links = portfolios.findAll('ul', attrs={'class':'program-list'})
+                for degree_type in degree_links:
+                    current_degrees = []
+                    list_degrees = degree_type.findAll('li', attrs={'style':'list-style-type: none'})
+                    for degree in list_degrees:
+                        href = "https://catalog.rpi.edu/" + degree.find('a').get('href')
+                        name = degree.find('a').get_text()
+                        name_link_pair = [name, href]
+                        current_degrees.append(name_link_pair)
+                    storage_ul.append(current_degrees)
 
         break
 
