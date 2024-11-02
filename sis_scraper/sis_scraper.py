@@ -112,6 +112,76 @@ async def fetch_CRNs(soup):
         CRNs.append(CRN)
     return CRNs
 
+def get_seat_info(seat_table):
+    seat_info = seat_table.find_all("td")
+
+    capacity = seat_info[1].text
+    registered = seat_info[2].text
+    open_seats = seat_info[3].text
+    
+    return capacity, registered, open_seats
+
+def get_section_crosslist(section_body):
+     # Cross List Courses
+    course_pattern = r"[A-Z]{4}\s\d{4}"
+    crosslist = []
+    if "Cross List Courses:" in section_body:
+        if "Prerequisites:" in section_body:
+            crosslistBody = section_body[section_body.index("Cross List Courses:"):section_body.index("Prerequisites")]
+        else:
+            crosslistBody = section_body[section_body.index("Cross List Courses:"):]
+        crosslist = re.findall(course_pattern, crosslistBody)
+
+    return crosslist
+
+def get_restrictions(section_body):
+    restriction_types = ["Must be enrolled in one of the following Majors",
+                         "Must be enrolled in one of the following Levels",
+                         "Must be enrolled in one of the following Classifications",
+                         "May not be enrolled as the following Classifications"]
+                         
+    major_restrictions = []
+    level_restrictions = []
+    classification_restrictions = []
+    grade_restrictions = []
+    
+
+     # Remove excess characters
+    section_body = section_body.replace("&nbsp;", "").replace("\xa0", "").replace("   ", "")
+    while "\n\n" in section_body:
+        section_body = section_body.replace("\n\n", "\n")
+
+    if "Restrictions:" in section_body:
+        if "Prerequisites:" in section_body:
+            restriction_body = section_body[section_body.index("Restrictions:"):section_body.index("Prerequisites:")]
+        else:
+            restriction_body = section_body[section_body.index("Restrictions:"):]
+
+        all_restriction_data = restriction_body.split(":")
+        all_restriction_data = all_restriction_data[1:] # Filter out "Restrictions:"
+        
+        # Odd index are the restriction type, 
+        # Even index are the restriction data
+        for i in range(0, len(all_restriction_data), 2):
+            if all_restriction_data[i].strip() in restriction_types:
+                rest = all_restriction_data[i+1].split("\n")
+
+                # Remove empty strings
+                rest = list(filter(lambda a: a != "", rest))
+
+                # Fill in the correct restriction list
+                if all_restriction_data[i].strip() == restriction_types[0]:
+                    major_restrictions = rest
+                elif all_restriction_data[i].strip() == restriction_types[1]:
+                    level_restrictions = rest
+                elif all_restriction_data[i].strip() == restriction_types[2]:
+                    classification_restrictions = rest
+                elif all_restriction_data[i].strip() == restriction_types[3]:
+                    grade_restrictions = rest
+
+    return [major_restrictions, level_restrictions, classification_restrictions, grade_restrictions]
+
+# Gets the restrictions, crosslist, capacity, registered, open_seats given a term and CRN
 async def get_section_data(session, term, CRN):
     url = "https://sis.rpi.edu/rss/bwckschd.p_disp_detail_sched"
     params = f"term_in={term}&crn_in={CRN}"
@@ -125,25 +195,16 @@ async def get_section_data(session, term, CRN):
         })
         section_body = soup.find("td",{"class": "dddefault"}).getText()
 
-    seat_info = seat_table.find_all("td")
+        section_crosslist = get_section_crosslist(section_body)
+        restrictions = get_restrictions(section_body)
+        capacity, registered, open_seats = get_seat_info(seat_table)
 
-    course_pattern = r"[A-Z]{4}\s\d{4}"
-
-    capacity = seat_info[1].text
-    registered = seat_info[2].text
-    open_seats = seat_info[3].text
-    
-
-    crosslist = []
-    crosslist = re.findall(course_pattern, section_body)
-
-    return crosslist, capacity, registered, open_seats
+    return section_crosslist, restrictions, capacity, registered, open_seats
 
 async def get_section_info(session, term, soup):
     CRNs = await fetch_CRNs(soup)  
 
-    section_tables = soup.find_all("table",
-    {
+    section_tables = soup.find_all("table",{
             "class": "datadisplaytable",
             "summary": "This table lists the scheduled meeting times and assigned instructors for this class..",
         },
@@ -151,6 +212,15 @@ async def get_section_info(session, term, soup):
 
     sections_data = []
     crosslist = []
+    major_restrictions, level_restrictions, classification_restrictions, grade_restrictions = [], [], [], []
+    
+    restrictions = {
+        "major": major_restrictions,
+        "level": level_restrictions,
+        "classification": classification_restrictions,
+        "grade": grade_restrictions
+    }
+    
     count = 0
     
     #per section
@@ -188,13 +258,47 @@ async def get_section_info(session, term, soup):
                 schedule[day] = day_info
 
         CRN = CRNs[count]
-        response_crosslist, capacity, registered, open_seats = await get_section_data(session, term, CRN)
 
-        if(response_crosslist != None):
-            for course in response_crosslist:
+        section_crosslist, restrictions, capacity, registered, open_seats = await get_section_data(session, term, CRN)
+        # Crosslist
+        if(section_crosslist != None):
+            for course in section_crosslist:
                 if course not in crosslist:
                     crosslist.append(course)
-            
+
+        section_major_restrictions = restrictions[0]
+        section_level_restrictions = restrictions[1]
+        section_classification_restrictions = restrictions[2]
+        section_grade_restrictions = restrictions[3]
+
+        # Restrictions
+        if section_major_restrictions != []:
+            for restriction in section_major_restrictions:
+                if restriction not in major_restrictions:
+                    major_restrictions.append(restriction)
+        
+        if section_level_restrictions != []:
+            for restriction in section_level_restrictions:
+                if restriction not in level_restrictions:
+                    level_restrictions.append(restriction)
+
+        if section_classification_restrictions != []:
+            for restriction in section_classification_restrictions:
+                if restriction not in classification_restrictions:
+                    classification_restrictions.append(restriction)
+
+        if section_grade_restrictions != []:
+            for restriction in section_grade_restrictions:
+                if restriction not in grade_restrictions:
+                    grade_restrictions.append(restriction)
+
+        restrictions = {
+            "major": major_restrictions,
+            "level": level_restrictions,
+            "classification": classification_restrictions,
+            "grade": grade_restrictions
+        }
+
         section_entry = {
             "CRN": CRN,
             "instructor": instructors,
@@ -207,9 +311,9 @@ async def get_section_info(session, term, soup):
         sections_data.append(section_entry)
         count += 1
 
-    return crosslist, sections_data
+    return crosslist, restrictions, sections_data
 
-async def fetch_crosslist_sections(session, term, subject_code, course_code):
+async def fetch_crosslist_restriction_section(session, term, subject_code, course_code):
   url = "https://sis.rpi.edu/rss/bwckctlg.p_disp_listcrse"
   param = f"term_in={term}&subj_in={subject_code}&crse_in={course_code}&schd_in=L"
   url = f"{url}?{param}"
@@ -218,11 +322,11 @@ async def fetch_crosslist_sections(session, term, subject_code, course_code):
 
     is_section_found = soup.find("caption", class_="captiontext")
     if(is_section_found == None):
-        return None, None
+        return None, None, None
 
-    response_crosslist, sections_data = await get_section_info(session, term, soup)
+    response_crosslist, response_restrictions, sections_data = await get_section_info(session, term, soup)
 
-    return response_crosslist, sections_data
+    return response_crosslist, response_restrictions, sections_data
   
 async def parse_attributes(soup, term, subject_code, course_code):
     attributes = []
@@ -238,7 +342,6 @@ async def parse_attributes(soup, term, subject_code, course_code):
 async def parse_crosslist(soup):
     soup.find('span', class_='fieldlabeltext', string='Cross Listed: ')
         
-
 async def get_course_detail(session, term, subject_code, course_code):
     url = "https://sis.rpi.edu/rss/bwckctlg.p_disp_course_detail"
     params = f"cat_term_in={term}&subj_code_in={subject_code}&crse_numb_in={course_code}"
@@ -249,6 +352,12 @@ async def get_course_detail(session, term, subject_code, course_code):
         "prerequisite" : [],
         "crosslist" : [],
         "attributes" : [],
+        "restrictions" : {
+            "major": [],
+            "level": [],
+            "classification": [],
+            "grade": []
+        },
         "credits" : {
             "min": 0,
             "max": 0
@@ -261,7 +370,7 @@ async def get_course_detail(session, term, subject_code, course_code):
         
         course_data = soup.find("td", class_="ntdefault").contents[0].strip().split("\n")
 
-        crosslist, sections_data = await fetch_crosslist_sections(session, term, subject_code, course_code)
+        crosslist, restrictions, sections_data = await fetch_crosslist_restriction_section(session, term, subject_code, course_code)
 
         if(sections_data == None):
             return None
@@ -317,6 +426,7 @@ async def get_course_detail(session, term, subject_code, course_code):
 
         info["crosslist"] = crosslist
         info["attributes"] = await parse_attributes(soup, term, subject_code, course_code)
+        info["restrictions"] = restrictions
         info["sections"] = sections_data 
 
     return info
