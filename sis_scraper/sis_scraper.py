@@ -157,27 +157,19 @@ def get_restrictions(section_body):
         else:
             restriction_body = section_body[section_body.index("Restrictions:"):]
 
-        all_restriction_data = restriction_body.split(":")
-        all_restriction_data = all_restriction_data[1:] # Filter out "Restrictions:"
-        
-        # Odd index are the restriction type, 
-        # Even index are the restriction data
-        for i in range(0, len(all_restriction_data), 2):
-            if all_restriction_data[i].strip() in restriction_types:
-                rest = all_restriction_data[i+1].split("\n")
+        for restriction in restriction_types:
+            match = re.search(rf"{restriction}:\n([^\n]*(?:\n(?!Must be|May not be)[^\n]*)*)", restriction_body)
+            if match:
+                restriction_data = match.group(1).strip().split("\n")
 
-                # Remove empty strings
-                rest = list(filter(lambda a: a != "", rest))
-
-                # Fill in the correct restriction list
-                if all_restriction_data[i].strip() == restriction_types[0]:
-                    major_restrictions = rest
-                elif all_restriction_data[i].strip() == restriction_types[1]:
-                    level_restrictions = rest
-                elif all_restriction_data[i].strip() == restriction_types[2]:
-                    classification_restrictions = rest
-                elif all_restriction_data[i].strip() == restriction_types[3]:
-                    grade_restrictions = rest
+                if restriction == restriction_types[0]:
+                    major_restrictions = restriction_data
+                elif restriction == restriction_types[1]:
+                    level_restrictions = restriction_data
+                elif restriction == restriction_types[2]:
+                    classification_restrictions = restriction_data
+                elif restriction == restriction_types[3]:
+                    grade_restrictions = restriction_data
 
     return [major_restrictions, level_restrictions, classification_restrictions, grade_restrictions]
 
