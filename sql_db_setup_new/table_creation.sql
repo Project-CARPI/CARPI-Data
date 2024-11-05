@@ -70,13 +70,9 @@ CREATE TABLE IF NOT EXISTS course_restriction(
     dept VARCHAR(4) NOT NULL,
     code_num SMALLINT NOT NULL,
     category ENUM(
-        'Level',
         'Major',
-        'Classification',
-        'Degree',
-        'Field',
-        'Campus',
-        'College'
+        'Level',
+        'Classification'
     ) NOT NULL,
     restr_rule ENUM('Must be', 'May not be') NOT NULL,
     restriction VARCHAR(255) NOT NULL,
