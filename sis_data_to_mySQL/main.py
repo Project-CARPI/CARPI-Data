@@ -144,35 +144,73 @@ def insert_course_attributes(connetion, data):
     SQL_DATA = SQL_DATA[:-1] + "ON DUPLICATE KEY UPDATE dept = dept;"
     execute_query(connection, SQL_DATA)
 
-load_dotenv()
-print("ENV LOADED")
-HOST = os.getenv("HOST")
-PORT = os.getenv("PORT")
-USER = os.getenv("USERNAME")
-PASS = os.getenv("PASS")
-DB = os.getenv("DB")
+def insert_course_restriction(connection, data):
+    SQL_DATA = "INSERT INTO course_restriction (dept, code_num, category, restr_rule, restriction) VALUES "
+    for DEPARTMENT in data:
+        for COURSE in data[DEPARTMENT]["courses"]:
+            COURSE_DATA = data[DEPARTMENT]["courses"][COURSE]
+            CODE_NUM = COURSE.split(" ")[1]
+            COURSE_DETAIL = COURSE_DATA["course_detail"]
+            RESTRICTIONS = COURSE_DETAIL["restrictions"]
+            for restriction in RESTRICTIONS:
+                # Major Restrictions
+                for major in RESTRICTIONS["major"]:
+                   SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Major', 'Must be', '{major}'),"
+                for not_major in RESTRICTIONS["not_major"]:
+                   SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Major', 'May not be', '{major}'),"
+                
+                # Level Restrictions
+                for level in RESTRICTIONS["level"]:
+                   SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Level', 'Must be', '{level}'),"
+                for not_level in RESTRICTIONS["not_level"]:
+                   SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Level', 'May not be', '{not_level}'),"
 
-print("Connecting to DB")
-connection = create_connection(HOST, PORT, USER, PASS, DB)
+                # Classification Restrictions
+                for classification in RESTRICTIONS["classification"]:
+                   SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Classification', 'Must be', '{classification}'),"
+                for not_classification in RESTRICTIONS["not_classification"]:
+                   SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Classification', 'May not be', '{not_classification}'),"
 
-for files in os.walk('Data'):
-    sorted_files = sorted(files[2], reverse=True)
-    for file in sorted_files:
-        print("File: " + file)
-        with open(f'Data/{file}') as f:
-            data = json.load(f)
-            
-            print(f"    Inserting Course Data for {file}")
-            insert_course_data(connection, data)
-            
-            print(f"    Inserting Course Seats Data for {file}")
-            insert_course_seats_data(connection, file, data)
+    SQL_DATA = SQL_DATA[:-1] + "ON DUPLICATE KEY UPDATE dept = dept;"
 
-            print(f"    Inserting Professor Data for {file}")
-            insert_professor_data(connection, file, data)
+    execute_query(connection, SQL_DATA)
 
-            # print(f"    Inserting Course Relationship Data for {file}")
-            # insert_course_relationship(connection, data, file)
+def main():
+    load_dotenv()
+    print("ENV LOADED")
+    HOST = os.getenv("HOST")
+    PORT = os.getenv("PORT")
+    USER = os.getenv("USERNAME")
+    PASS = os.getenv("PASS")
+    DB = os.getenv("DB")
 
-            print(f"    Inserting Course Attributes for {file}")
-            insert_course_attributes(connection, data)
+    print("Connecting to DB")
+    connection = create_connection(HOST, PORT, USER, PASS, DB)
+
+    for files in os.walk('Data'):
+        sorted_files = sorted(files[2], reverse=True)
+        for file in sorted_files:
+            print("File: " + file)
+            with open(f'Data/{file}') as f:
+                data = json.load(f)
+                
+                print(f"    Inserting Course Data for {file}")
+                insert_course_data(connection, data)
+                
+                print(f"    Inserting Course Seats Data for {file}")
+                insert_course_seats_data(connection, file, data)
+
+                print(f"    Inserting Professor Data for {file}")
+                insert_professor_data(connection, file, data)
+
+                # print(f"    Inserting Course Relationship Data for {file}")
+                # insert_course_relationship(connection, data, file)
+
+                print(f"    Inserting Course Attributes for {file}")
+                insert_course_attributes(connection, data)
+                
+                print(f"    Inserting Course Restrictions for {file}")
+                insert_course_restriction(connection, data)
+
+if __name__ == "__main__":
+    main()
