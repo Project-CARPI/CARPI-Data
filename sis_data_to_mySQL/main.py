@@ -4,6 +4,7 @@ import os
 import json
 from dotenv import load_dotenv
 
+
 def create_connection(host_name, port, user_name, user_password, db_name):
     connection = None
 
@@ -130,6 +131,19 @@ def insert_course_relationship(connection, data, year):
     SQL_DATA = SQL_DATA[:-1] + "ON DUPLICATE KEY UPDATE dept = dept;"
     execute_query(connection, SQL_DATA)
 
+def insert_course_attributes(connetion, data):
+    SQL_DATA = "INSERT INTO course_attribute (dept, code_num, attr) VALUES "
+    for DEPARTMENT in data:
+        for COURSE in data[DEPARTMENT]["courses"]:
+            COURSE_DATA = data[DEPARTMENT]["courses"][COURSE]
+            CODE_NUM = COURSE.split(" ")[1]
+            COURSE_DETAIL = COURSE_DATA["course_detail"]
+            ATTRIBUTES = COURSE_DETAIL["attributes"]
+            for attribute in ATTRIBUTES:
+                SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', '{attribute}'),"
+    SQL_DATA = SQL_DATA[:-1] + "ON DUPLICATE KEY UPDATE dept = dept;"
+    execute_query(connection, SQL_DATA)
+
 load_dotenv()
 print("ENV LOADED")
 HOST = os.getenv("HOST")
@@ -157,14 +171,8 @@ for files in os.walk('Data'):
             print(f"    Inserting Professor Data for {file}")
             insert_professor_data(connection, file, data)
 
-            print(f"    Inserting Course Relationship Data for {file}")
-            insert_course_relationship(connection, data, file)
+            # print(f"    Inserting Course Relationship Data for {file}")
+            # insert_course_relationship(connection, data, file)
 
-            
-
-                    
-
-
-
-
-
+            print(f"    Inserting Course Attributes for {file}")
+            insert_course_attributes(connection, data)
