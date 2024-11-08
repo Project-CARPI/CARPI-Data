@@ -136,16 +136,19 @@ def get_section_crosslist(section_body):
 
 def get_restrictions(section_body):
     restriction_types = ["Must be enrolled in one of the following Majors",
+                         "May not be enrolled in one of the following Majors",
                          "Must be enrolled in one of the following Levels",
+                         "May not be enrolled in one of the following Levels",
                          "Must be enrolled in one of the following Classifications",
                          "May not be enrolled as the following Classifications"]
                          
     major_restrictions = []
+    not_major_restrictions = []
     level_restrictions = []
+    not_level_restrictions = []
     classification_restrictions = []
-    grade_restrictions = []
+    not_classification_restrictions = []
     
-
      # Remove excess characters
     section_body = section_body.replace("&nbsp;", "").replace("\xa0", "").replace("   ", "")
     while "\n\n" in section_body:
@@ -165,13 +168,17 @@ def get_restrictions(section_body):
                 if restriction == restriction_types[0]:
                     major_restrictions = restriction_data
                 elif restriction == restriction_types[1]:
-                    level_restrictions = restriction_data
+                    not_major_restrictions = restriction_data
                 elif restriction == restriction_types[2]:
-                    classification_restrictions = restriction_data
+                    level_restrictions = restriction_data
                 elif restriction == restriction_types[3]:
-                    grade_restrictions = restriction_data
+                    not_level_restrictions = restriction_data
+                elif restriction == restriction_types[4]:
+                    classification_restrictions = restriction_data
+                elif restriction == restriction_types[5]:
+                    not_classification_restrictions = restriction_data
 
-    return [major_restrictions, level_restrictions, classification_restrictions, grade_restrictions]
+    return [major_restrictions, not_major_restrictions, level_restrictions, not_level_restrictions, classification_restrictions, not_classification_restrictions]
 
 # Gets the restrictions, crosslist, capacity, registered, open_seats given a term and CRN
 async def get_section_data(session, term, CRN):
@@ -204,13 +211,16 @@ async def get_section_info(session, term, soup):
 
     sections_data = []
     crosslist = []
-    major_restrictions, level_restrictions, classification_restrictions, grade_restrictions = [], [], [], []
-    
+    major_restrictions, level_restrictions, classification_restrictions = [], [], []
+    not_major_restrictions, not_level_restrictions, not_classification_restrictions = [], [], []
+
     restrictions = {
         "major": major_restrictions,
+        "not_major": not_major_restrictions,
         "level": level_restrictions,
+        "not_level": not_level_restrictions,
         "classification": classification_restrictions,
-        "grade": grade_restrictions
+        "not_classification": not_classification_restrictions
     }
     
     count = 0
@@ -259,9 +269,11 @@ async def get_section_info(session, term, soup):
                     crosslist.append(course)
 
         section_major_restrictions = restrictions[0]
-        section_level_restrictions = restrictions[1]
-        section_classification_restrictions = restrictions[2]
-        section_grade_restrictions = restrictions[3]
+        section_not_major_restrictions = restrictions[1]
+        section_level_restrictions = restrictions[2]
+        section_not_level_restrictions = restrictions[3]
+        section_classification_restrictions = restrictions[4]
+        section_not_classification_restrictions = restrictions[5]
 
         # Restrictions
         if section_major_restrictions != []:
@@ -269,26 +281,37 @@ async def get_section_info(session, term, soup):
                 if restriction not in major_restrictions:
                     major_restrictions.append(restriction)
         
+        if section_not_major_restrictions != []:
+            for restriction in section_not_major_restrictions:
+                if restriction not in not_major_restrictions:
+                    not_major_restrictions.append(restriction)
+
         if section_level_restrictions != []:
             for restriction in section_level_restrictions:
                 if restriction not in level_restrictions:
                     level_restrictions.append(restriction)
+        if section_not_level_restrictions != []:
+            for restriction in section_not_level_restrictions:
+                if restriction not in not_level_restrictions:
+                    not_level_restrictions.append(restriction)
 
         if section_classification_restrictions != []:
             for restriction in section_classification_restrictions:
                 if restriction not in classification_restrictions:
                     classification_restrictions.append(restriction)
-
-        if section_grade_restrictions != []:
-            for restriction in section_grade_restrictions:
-                if restriction not in grade_restrictions:
-                    grade_restrictions.append(restriction)
+        if section_not_classification_restrictions != []:
+            for restriction in section_not_classification_restrictions:
+                if restriction not in not_classification_restrictions:
+                    not_classification_restrictions.append(restriction)
+        
 
         restrictions = {
             "major": major_restrictions,
+            "not_major": not_major_restrictions,
             "level": level_restrictions,
+            "not_level": not_level_restrictions,
             "classification": classification_restrictions,
-            "grade": grade_restrictions
+            "not_classification": not_classification_restrictions
         }
 
         section_entry = {
