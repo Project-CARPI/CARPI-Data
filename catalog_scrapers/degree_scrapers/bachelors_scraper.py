@@ -471,31 +471,6 @@ def main():
                                     classes_and_requirements[degree[0]]["Fourth Year"]["Spring"] = spring_sem
                             # return
                         # print(classes_and_requirements)
-            
-            if storage_p[index_of_degree] == "Doctoral":
-                print("Ph.D")
-                soup = BeautifulSoup(pageToScrape.text, 'html.parser')
-                portfolios = soup.find('td', attrs={'class':'block_content', 'colspan':'2'})
-
-                # get all the degree names
-                p_names = portfolios.findAll('p', attrs={'style':'padding-left: 30px'})
-                for name in p_names:
-                    strong = name.find('strong').get_text()
-                    storage_p.append(strong)
-
-                
-                # get all the degree links and names of degrees
-                degree_links = portfolios.findAll('ul', attrs={'class':'program-list'})
-                for degree_type in degree_links:
-                    current_degrees = []
-                    list_degrees = degree_type.findAll('li', attrs={'style':'list-style-type: none'})
-                    for degree in list_degrees:
-                        href = "https://catalog.rpi.edu/" + degree.find('a').get('href')
-                        name = degree.find('a').get_text()
-                        name_link_pair = [name, href]
-                        current_degrees.append(name_link_pair)
-                    storage_ul.append(current_degrees)
-
         break
 
 
