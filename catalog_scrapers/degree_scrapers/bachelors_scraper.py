@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 import requests
-import sys
+import csv
 
 # def main():
 #     baseURL = 'https://glasswing.vc/our-companies/'
@@ -471,6 +471,11 @@ def main():
                                     classes_and_requirements[degree[0]]["Fourth Year"]["Spring"] = spring_sem
                             # return
                         # print(classes_and_requirements)
+                        
+            with open('output.csv', mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(classes_and_requirements.keys())  # Write header
+                writer.writerow(classes_and_requirements.values())  # Write data
         break
 
 
