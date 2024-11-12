@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import csv
+import os
 
 # def main():
 #     baseURL = 'https://glasswing.vc/our-companies/'
@@ -82,6 +83,8 @@ def main():
                         #   Information Technology and Web Science: Completely different scraping format.
                         #   Music: ???
                         #   Physician-Scientist: spring_classes = all_leftpads[i]... -> NoneType object
+                        if degree[0] == "Architecture, B.Arch.":
+                            return
                         if degree[0] == "Biology, B.S." or degree[0] == "Engineering Core Curriculum" or degree[0] == "Information Technology and Web Science B.S." or degree[0] == "Music B.S." or degree[0] == "Physician-Scientist" or degree[0] == "Architecture, B.Arch.":
                             continue
                         classes_and_requirements[degree[0]] = {
@@ -123,6 +126,13 @@ def main():
                                 fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
                                 spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
 
+                                fall_val = len(all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul'))
+                                spring_val = len(spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul').findAll('li'))
+                                
+                                if fall_val > 1:
+                                    for i in range(0, fall_val):
+                                        
+
                                 if i == 2:
                                     arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
                                     fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
@@ -136,7 +146,7 @@ def main():
                                             test = class_and_credits.index(":")
                                             # Proceed with the logic if the colon is found
                                             # For example, split the string
-                                            class_item = class_and_credits[0:test - 13]
+                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
                                             credits_per_class = class_and_credits[test + 2:test + 3]
                                             fall_sem.append(class_item + ":" + str(credits_per_class))
                                             index += 1
@@ -176,7 +186,7 @@ def main():
                                             test = class_and_credits.index(":")
                                             # Proceed with the logic if the colon is found
                                             # For example, split the string
-                                            class_item = class_and_credits[0:test - 13]
+                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
                                             credits_per_class = class_and_credits[test + 2:test + 3]
                                             spring_sem.append(class_item + ":" + str(credits_per_class))
                                             index += 1
@@ -220,7 +230,7 @@ def main():
                                             test = class_and_credits.index(":")
                                             # Proceed with the logic if the colon is found
                                             # For example, split the string
-                                            class_item = class_and_credits[0:test - 13]
+                                            class_item = class_and_credits[0:test - 13].replace("….", "... -").replace("….", "... -")
                                             credits_per_class = class_and_credits[test + 2:test + 3]
                                             fall_sem.append(class_item + ":" + str(credits_per_class))
                                             index += 1
@@ -260,7 +270,7 @@ def main():
                                             test = class_and_credits.index(":")
                                             # Proceed with the logic if the colon is found
                                             # For example, split the string
-                                            class_item = class_and_credits[0:test - 13]
+                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
                                             credits_per_class = class_and_credits[test + 2:test + 3]
                                             spring_sem.append(class_item + ":" + str(credits_per_class))
                                             index += 1
@@ -315,7 +325,7 @@ def main():
                                             test = class_and_credits.index(":")
                                             # Proceed with the logic if the colon is found
                                             # For example, split the string
-                                            class_item = class_and_credits[0:test - 13]
+                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
                                             credits_per_class = class_and_credits[test + 2:test + 3]
                                             arch_sem.append(class_item + ":" + str(credits_per_class))
                                             index += 1
@@ -354,7 +364,7 @@ def main():
                                             test = class_and_credits.index(":")
                                             # Proceed with the logic if the colon is found
                                             # For example, split the string
-                                            class_item = class_and_credits[0:test - 13]
+                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
                                             credits_per_class = class_and_credits[test + 2:test + 3]
                                             fall_sem.append(class_item + ":" + str(credits_per_class))
                                             index += 1
@@ -396,7 +406,7 @@ def main():
                                             test = class_and_credits.index(":")
                                             # Proceed with the logic if the colon is found
                                             # For example, split the string
-                                            class_item = class_and_credits[0:test - 13]
+                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
                                             credits_per_class = class_and_credits[test + 2:test + 3]
                                             fall_sem.append(class_item + ":" + str(credits_per_class))
                                             index += 1
@@ -435,7 +445,7 @@ def main():
                                             test = class_and_credits.index(":")
                                             # Proceed with the logic if the colon is found
                                             # For example, split the string
-                                            class_item = class_and_credits[0:test - 13]
+                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
                                             credits_per_class = class_and_credits[test + 2:test + 3]
                                             spring_sem.append(class_item + ":" + str(credits_per_class))
                                             index += 1
@@ -472,10 +482,19 @@ def main():
                             # return
                         # print(classes_and_requirements)
                         
-            with open('output.csv', mode='w', newline='') as file:
+            folder_path = 'csvs'
+            file_name = 'bachelors.csv'
+
+            # Ensure the folder exists
+            os.makedirs(folder_path, exist_ok=True)
+
+            # Full file path
+            file_path = os.path.join(folder_path, file_name)
+
+            with open(file_path, mode='w', newline='') as file:
                 writer = csv.writer(file)
-                writer.writerow(classes_and_requirements.keys())  # Write header
-                writer.writerow(classes_and_requirements.values())  # Write data
+                for key, value in classes_and_requirements.items():
+                    writer.writerow([f"{key}:{value}"])
         break
 
 
