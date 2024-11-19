@@ -5,14 +5,14 @@ def parse_parentheses(s):
     parsed = ""
     stack = []
     current = ""
-    contents = []
+    values = []
     for char in s:
         if char == "(":
             if len(stack) > 0:
                 current += char
             else:
                 if current != "":
-                    contents.append(current)
+                    values.append(current)
                 parsed += char
             stack.append("(")
         elif char == ")":
@@ -20,10 +20,8 @@ def parse_parentheses(s):
                 current += char
             elif len(stack) == 1:
                 if current != "":
-                    contents.append(current)
+                    values.append(current)
                 current = ""
-                parsed += char
-            else:
                 parsed += char
             stack.pop()
         elif len(stack) > 0:
@@ -31,8 +29,13 @@ def parse_parentheses(s):
         else:
             parsed += char
     if current != "":
-        contents.append(current)
-    return contents, parsed
+        values.append(current)
+    for c in values:
+        if "(" in c:
+            inner_parsed, inner_values = parse_parentheses(c)
+            new_c = {"parsed": inner_parsed, "values": inner_values}
+            values[values.index(c)] = new_c
+    return parsed, values
 
 
 def main():
@@ -45,7 +48,7 @@ def main():
             if prereq == "":
                 continue
             stuff[current_course + " original"] = prereq
-            values, parsed = parse_parentheses(prereq)
+            parsed, values = parse_parentheses(prereq)
 
             json_structure = {"parsed": parsed, "values": values}
             stuff[current_course] = json_structure
