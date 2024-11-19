@@ -1,7 +1,6 @@
 import json
 
-
-def parse_parentheses(course, p_string):
+def parse_parentheses(course, p_string, id):
     parsed = ""
     stack = []
     current = ""
@@ -35,8 +34,9 @@ def parse_parentheses(course, p_string):
         values.append(current)
     for val in values:
         if '(' in val and ')' in val:
-            inner_parsed, inner_values = parse_parentheses(course, val)
-            new_c = {"parsed": inner_parsed, "values": inner_values}
+            id += 1
+            inner_parsed, inner_values = parse_parentheses(course, val, id)
+            new_c = {"id": id, "parsed": inner_parsed, "values": inner_values}
             values[values.index(val)] = new_c
     if len(stack) > 0:
         print(f"{course} - Unbalanced parentheses: Extra '('")
@@ -52,10 +52,8 @@ def main():
             prereq = content[1].strip()
             if prereq == "":
                 continue
-            # stuff[current_course + " original"] = prereq
-            parsed, values = parse_parentheses(current_course, prereq)
-
-            json_structure = {"parsed": parsed, "values": values}
+            parsed, values = parse_parentheses(current_course, prereq, 0)
+            json_structure = {"id": 0, "parsed": parsed, "values": values}
             stuff[current_course] = json_structure
 
     with open("./data/output.json", "w") as output:
