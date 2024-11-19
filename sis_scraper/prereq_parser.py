@@ -1,5 +1,6 @@
 import json
 
+
 def parse_parentheses(course, p_string, id):
     parsed = ""
     stack = []
@@ -33,7 +34,7 @@ def parse_parentheses(course, p_string, id):
     if current != "":
         values.append(current)
     for val in values:
-        if '(' in val and ')' in val:
+        if "(" in val and ")" in val:
             id += 1
             inner_parsed, inner_values = parse_parentheses(course, val, id)
             new_c = {"id": id, "parsed": inner_parsed, "values": inner_values}
@@ -43,6 +44,13 @@ def parse_parentheses(course, p_string, id):
     return parsed, values
 
 
+def parse_prereq(course, string):
+    if string == "":
+        return {}
+    parsed, values = parse_parentheses(course, string, 0)
+    return {"id": 0, "parsed": parsed, "values": values}
+
+
 def main():
     stuff = {}
     with open("./data/message.txt", "r") as file:
@@ -50,10 +58,7 @@ def main():
             content = line.split(": ")
             current_course = content[0]
             prereq = content[1].strip()
-            if prereq == "":
-                continue
-            parsed, values = parse_parentheses(current_course, prereq, 0)
-            json_structure = {"id": 0, "parsed": parsed, "values": values}
+            json_structure = parse_prereq(current_course, prereq)
             stuff[current_course] = json_structure
 
     with open("./data/output.json", "w") as output:
