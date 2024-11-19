@@ -83,7 +83,7 @@ def main():
                         #   Information Technology and Web Science: Completely different scraping format.
                         #   Music: ???
                         #   Physician-Scientist: spring_classes = all_leftpads[i]... -> NoneType object    
-                        if degree[0] == "Biology, B.S." or degree[0] == "Engineering Core Curriculum" or degree[0] == "Information Technology and Web Science B.S." or degree[0] == "Music B.S." or degree[0] == "Physician-Scientist" or degree[0] == "Architecture, B.Arch.":
+                        if degree[0] == "Engineering Core Curriculum" or degree[0] == "Information Technology and Web Science B.S."  or degree[0] == "Physician-Scientist" or degree[0] == "Architecture, B.Arch.":
                             continue
                         classes_and_requirements[degree[0]] = {
                             "First Year": {
@@ -119,553 +119,833 @@ def main():
 
                             if degree[0] == "Engineering Core Curriculum":
                                 for i in range(2):
-                                fall_sem = []
-                                spring_sem = []
-                                fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
-                                spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+                                    fall_sem = []
+                                    spring_sem = []
+                                    fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
+                                    spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
 
-                                fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
-                                spring_val = spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
-                                
-                                if len(fall_val) > 1:
-                                    lol = []
-                                    for i in range(0, len(fall_val)):
-                                        lol += fall_val[i].findAll('li')
-                                    print(lol)
+                                    fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
+                                    spring_val = spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
+                                    
+                                    if len(fall_val) > 1:
+                                        lol = []
+                                        for i in range(0, len(fall_val)):
+                                            lol += fall_val[i].findAll('li')
+                                        print(lol)
 
-                                if i == 0:
-                                    index = 0
-                                    while index < len(fall_classes):
-                                        class_and_credits = fall_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            fall_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(fall_sem) > 0:
-                                                    fall_sem.pop(len(fall_sem) - 1)
-                                                first_choice = fall_classes[index - 1].get_text()
-
-                                                test = first_choice.index(":")
+                                    if i == 0:
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = fall_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                fall_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
 
-                                    # do the same thing with spring classes
-                                    index = 0
-                                    while index < len(spring_classes):
-                                        class_and_credits = spring_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            spring_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(spring_sem) > 0:
-                                                    spring_sem.pop(len(spring_sem) - 1)
-                                                first_choice = spring_classes[index - 1].get_text()
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
 
-                                                test = first_choice.index(":")
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+
+                                        # do the same thing with spring classes
+                                        index = 0
+                                        while index < len(spring_classes):
+                                            class_and_credits = spring_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = spring_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                spring_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                spring_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    # add all the courses into the requirements
-                                    classes_and_requirements[degree[0]]["First Year"]["Fall"] = fall_sem
-                                    classes_and_requirements[degree[0]]["First Year"]["Spring"] = spring_sem
-                                    # print(classes_and_requirements)
-                                elif i == 1:
-                                    # print("Sophomore year loading")
-                                    index = 0
-                                    while index < len(fall_classes):
-                                        class_and_credits = fall_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -").replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            fall_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(fall_sem) > 0:
-                                                    fall_sem.pop(len(fall_sem) - 1)
-                                                first_choice = fall_classes[index - 1].get_text()
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(spring_sem) > 0:
+                                                        spring_sem.pop(len(spring_sem) - 1)
+                                                    first_choice = spring_classes[index - 1].get_text()
 
-                                                test = first_choice.index(":")
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = spring_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    spring_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        # add all the courses into the requirements
+                                        classes_and_requirements[degree[0]]["First Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["First Year"]["Spring"] = spring_sem
+                                        # print(classes_and_requirements)
+                                    elif i == 1:
+                                        # print("Sophomore year loading")
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = fall_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                fall_sem.append(or_classes)
-                                                index += 2
-                                                # testign
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -").replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    # do the same thing with spring classes
-                                    index = 0
-                                    while index < len(spring_classes):
-                                        class_and_credits = spring_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            spring_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(spring_sem) > 0:
-                                                    spring_sem.pop(len(spring_sem) - 1)
-                                                first_choice = spring_classes[index - 1].get_text()
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
 
-                                                test = first_choice.index(":")
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                    # testign
+                                                else:
+                                                    index += 1
+                                        # do the same thing with spring classes
+                                        index = 0
+                                        while index < len(spring_classes):
+                                            class_and_credits = spring_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = spring_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                spring_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                spring_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    # add all the courses into the requirements
-                                    classes_and_requirements[degree[0]]["Second Year"]["Fall"] = fall_sem
-                                    classes_and_requirements[degree[0]]["Second Year"]["Spring"] = spring_sem
-                                    # print(classes_and_requirements)
-                                    # sys.exit(1)
-                            
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(spring_sem) > 0:
+                                                        spring_sem.pop(len(spring_sem) - 1)
+                                                    first_choice = spring_classes[index - 1].get_text()
 
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
 
-                            for i in range(4):
-                                arch_sem = []
-                                fall_sem = []
-                                spring_sem = []
-                                arch_classes = []
-                                fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
-                                spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+                                                    second_choice = spring_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    spring_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        # add all the courses into the requirements
+                                        classes_and_requirements[degree[0]]["Second Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["Second Year"]["Spring"] = spring_sem
+                                        # print(classes_and_requirements)
+                                        # sys.exit(1)
+                            elif degree[0] == "Physician-Scientist":
+                                for i in range(3):
+                                    arch_sem = []
+                                    fall_sem = []
+                                    spring_sem = []
+                                    arch_classes = []
+                                    fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
+                                    spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
 
-                                fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
-                                spring_val = spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
-                                
-                                if len(fall_val) > 1:
-                                    lol = []
-                                    for i in range(0, len(fall_val)):
-                                        lol += fall_val[i].findAll('li')
-                                    print(lol)
+                                    fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
+                                    spring_val = spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
+                                    
+                                    if len(fall_val) > 1:
+                                        lol = []
+                                        for i in range(0, len(fall_val)):
+                                            lol += fall_val[i].findAll('li')
+                                        print(lol)
 
-                                if i == 2:
-                                    arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
-                                    fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
-                                    # spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[2].find('ul').findAll('li')
+                                    if i == 2:
+                                        arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
+                                        fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+                                        # spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[2].find('ul').findAll('li')
 
-                                if i == 0:
-                                    index = 0
-                                    while index < len(fall_classes):
-                                        class_and_credits = fall_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            fall_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(fall_sem) > 0:
-                                                    fall_sem.pop(len(fall_sem) - 1)
-                                                first_choice = fall_classes[index - 1].get_text()
-
-                                                test = first_choice.index(":")
+                                    if i == 0:
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = fall_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                fall_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
 
-                                    # do the same thing with spring classes
-                                    index = 0
-                                    while index < len(spring_classes):
-                                        class_and_credits = spring_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            spring_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(spring_sem) > 0:
-                                                    spring_sem.pop(len(spring_sem) - 1)
-                                                first_choice = spring_classes[index - 1].get_text()
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
 
-                                                test = first_choice.index(":")
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+
+                                        # do the same thing with spring classes
+                                        index = 0
+                                        while index < len(spring_classes):
+                                            class_and_credits = spring_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = spring_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                spring_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                spring_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    # add all the courses into the requirements
-                                    classes_and_requirements[degree[0]]["First Year"]["Fall"] = fall_sem
-                                    classes_and_requirements[degree[0]]["First Year"]["Spring"] = spring_sem
-                                    # print(classes_and_requirements)
-                                elif i == 1:
-                                    # print("Sophomore year loading")
-                                    index = 0
-                                    while index < len(fall_classes):
-                                        class_and_credits = fall_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -").replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            fall_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(fall_sem) > 0:
-                                                    fall_sem.pop(len(fall_sem) - 1)
-                                                first_choice = fall_classes[index - 1].get_text()
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(spring_sem) > 0:
+                                                        spring_sem.pop(len(spring_sem) - 1)
+                                                    first_choice = spring_classes[index - 1].get_text()
 
-                                                test = first_choice.index(":")
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = spring_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    spring_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        # add all the courses into the requirements
+                                        classes_and_requirements[degree[0]]["First Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["First Year"]["Spring"] = spring_sem
+                                        # print(classes_and_requirements)
+                                    elif i == 1:
+                                        # print("Sophomore year loading")
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = fall_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                fall_sem.append(or_classes)
-                                                index += 2
-                                                # testign
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -").replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    # do the same thing with spring classes
-                                    index = 0
-                                    while index < len(spring_classes):
-                                        class_and_credits = spring_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            spring_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(spring_sem) > 0:
-                                                    spring_sem.pop(len(spring_sem) - 1)
-                                                first_choice = spring_classes[index - 1].get_text()
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
 
-                                                test = first_choice.index(":")
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                    # testign
+                                                else:
+                                                    index += 1
+                                        # do the same thing with spring classes
+                                        index = 0
+                                        while index < len(spring_classes):
+                                            class_and_credits = spring_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = spring_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                spring_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                spring_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    # add all the courses into the requirements
-                                    classes_and_requirements[degree[0]]["Second Year"]["Fall"] = fall_sem
-                                    classes_and_requirements[degree[0]]["Second Year"]["Spring"] = spring_sem
-                                    # print(classes_and_requirements)
-                                    # sys.exit(1)
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(spring_sem) > 0:
+                                                        spring_sem.pop(len(spring_sem) - 1)
+                                                    first_choice = spring_classes[index - 1].get_text()
 
-                                # TO DO
-                                # Arch semesters are different. Approach must be different.
-                                elif i == 2:
-                                    # print(arch_classes)
-                                    # print(arch_sem)
-                                    # print(fall_classes)
-                                    # print(spring_classes)
-                                    # return
-                                    index = 0
-                                    while index < len(arch_classes):
-                                        class_and_credits = arch_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            arch_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(arch_sem) > 0:
-                                                    arch_sem.pop(len(arch_sem) - 1)
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
 
-                                                first_choice = arch_classes[index - 1].get_text()
+                                                    second_choice = spring_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    spring_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        # add all the courses into the requirements
+                                        classes_and_requirements[degree[0]]["Second Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["Second Year"]["Spring"] = spring_sem
+                                        # print(classes_and_requirements)
+                                        # sys.exit(1)
 
-                                                test = first_choice.index(":")
+                                    # TO DO
+                                    # Arch semesters are different. Approach must be different.
+                                    elif i == 2:
+                                        # print(arch_classes)
+                                        # print(arch_sem)
+                                        # print(fall_classes)
+                                        # print(spring_classes)
+                                        # return
+                                        index = 0
+                                        while index < len(arch_classes):
+                                            class_and_credits = arch_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = arch_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                arch_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                arch_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    index = 0
-                                    while index < len(fall_classes):
-                                        class_and_credits = fall_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            fall_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(fall_sem) > 0:
-                                                    fall_sem.pop(len(fall_sem) - 1)
-                                                first_choice = fall_classes[index - 1].get_text()
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(arch_sem) > 0:
+                                                        arch_sem.pop(len(arch_sem) - 1)
 
-                                                test = first_choice.index(":")
+                                                    first_choice = arch_classes[index - 1].get_text()
+
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = arch_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    arch_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = fall_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                fall_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    classes_and_requirements[degree[0]]["Third Year"]["Arch"] = arch_sem
-                                    classes_and_requirements[degree[0]]["Third Year"]["Fall"] = fall_sem
-                                    classes_and_requirements[degree[0]]["Third Year"]["Spring"] = ['ILEA 4400 - Independent Learning Experience:0']
-                                else:
-                                    index = 0
-                                    while index < len(fall_classes):
-                                        class_and_credits = fall_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            fall_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(fall_sem) > 0:
-                                                    fall_sem.pop(len(fall_sem) - 1)
-                                                first_choice = fall_classes[index - 1].get_text()
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
 
-                                                test = first_choice.index(":")
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        classes_and_requirements[degree[0]]["Third Year"]["Arch"] = arch_sem
+                                        classes_and_requirements[degree[0]]["Third Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["Third Year"]["Spring"] = ['ILEA 4400 - Independent Learning Experience:0']
+                            else:
+
+
+                                for i in range(4):
+                                    arch_sem = []
+                                    fall_sem = []
+                                    spring_sem = []
+                                    arch_classes = []
+                                    fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
+                                    spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+
+                                    fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
+                                    spring_val = spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
+                                    
+                                    if len(fall_val) > 1:
+                                        lol = []
+                                        for i in range(0, len(fall_val)):
+                                            lol += fall_val[i].findAll('li')
+                                        print(lol)
+
+                                    if i == 2:
+                                        arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
+                                        fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+                                        # spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[2].find('ul').findAll('li')
+
+                                    if i == 0:
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = fall_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                fall_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    # do the same thing with spring classes
-                                    index = 0
-                                    while index < len(spring_classes):
-                                        class_and_credits = spring_classes[index].get_text()
-                                        try:
-                                            test = class_and_credits.index(":")
-                                            # Proceed with the logic if the colon is found
-                                            # For example, split the string
-                                            class_item = class_and_credits[0:test - 13].replace("….", "... -")
-                                            credits_per_class = class_and_credits[test + 2:test + 3]
-                                            spring_sem.append(class_item + ":" + str(credits_per_class))
-                                            index += 1
-                                        except ValueError:
-                                            # Skip the item or handle it in case of missing colon
-                                            # print("Colon not found, skipping this entry.")
-                                            if class_and_credits == "or":
-                                                or_classes = []
-                                                if len(spring_sem) > 0:
-                                                    spring_sem.pop(len(spring_sem) - 1)
-                                                first_choice = spring_classes[index - 1].get_text()
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
 
-                                                test = first_choice.index(":")
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+
+                                        # do the same thing with spring classes
+                                        index = 0
+                                        while index < len(spring_classes):
+                                            class_and_credits = spring_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
                                                 # Proceed with the logic if the colon is found
                                                 # For example, split the string
-                                                class_item = first_choice[0:test - 13]
-                                                credits_per_class = first_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-
-                                                second_choice = spring_classes[index + 1].get_text()
-                                                test = second_choice.index(":")
-                                                # Proceed with the logic if the colon is found
-                                                # For example, split the string
-                                                class_item = second_choice[0:test]
-                                                credits_per_class = second_choice[test + 2:test + 3]
-                                                or_classes.append(class_item + ":" + str(credits_per_class))
-                                                spring_sem.append(or_classes)
-                                                index += 2
-                                            else:
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                spring_sem.append(class_item + ":" + str(credits_per_class))
                                                 index += 1
-                                    # add all the courses into the requirements
-                                    classes_and_requirements[degree[0]]["Fourth Year"]["Fall"] = fall_sem
-                                    classes_and_requirements[degree[0]]["Fourth Year"]["Spring"] = spring_sem
-                            # return
-                        # print(classes_and_requirements)
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(spring_sem) > 0:
+                                                        spring_sem.pop(len(spring_sem) - 1)
+                                                    first_choice = spring_classes[index - 1].get_text()
+
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = spring_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    spring_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        # add all the courses into the requirements
+                                        classes_and_requirements[degree[0]]["First Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["First Year"]["Spring"] = spring_sem
+                                        # print(classes_and_requirements)
+                                    elif i == 1:
+                                        # print("Sophomore year loading")
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
+                                                # Proceed with the logic if the colon is found
+                                                # For example, split the string
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -").replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
+                                                index += 1
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
+
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                    # testign
+                                                else:
+                                                    index += 1
+                                        # do the same thing with spring classes
+                                        index = 0
+                                        while index < len(spring_classes):
+                                            class_and_credits = spring_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
+                                                # Proceed with the logic if the colon is found
+                                                # For example, split the string
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                spring_sem.append(class_item + ":" + str(credits_per_class))
+                                                index += 1
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(spring_sem) > 0:
+                                                        spring_sem.pop(len(spring_sem) - 1)
+                                                    first_choice = spring_classes[index - 1].get_text()
+
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = spring_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    spring_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        # add all the courses into the requirements
+                                        classes_and_requirements[degree[0]]["Second Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["Second Year"]["Spring"] = spring_sem
+                                        # print(classes_and_requirements)
+                                        # sys.exit(1)
+
+                                    # TO DO
+                                    # Arch semesters are different. Approach must be different.
+                                    elif i == 2:
+                                        # print(arch_classes)
+                                        # print(arch_sem)
+                                        # print(fall_classes)
+                                        # print(spring_classes)
+                                        # return
+                                        index = 0
+                                        while index < len(arch_classes):
+                                            class_and_credits = arch_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
+                                                # Proceed with the logic if the colon is found
+                                                # For example, split the string
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                arch_sem.append(class_item + ":" + str(credits_per_class))
+                                                index += 1
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(arch_sem) > 0:
+                                                        arch_sem.pop(len(arch_sem) - 1)
+
+                                                    first_choice = arch_classes[index - 1].get_text()
+
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = arch_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    arch_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
+                                                # Proceed with the logic if the colon is found
+                                                # For example, split the string
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
+                                                index += 1
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
+
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        classes_and_requirements[degree[0]]["Third Year"]["Arch"] = arch_sem
+                                        classes_and_requirements[degree[0]]["Third Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["Third Year"]["Spring"] = ['ILEA 4400 - Independent Learning Experience:0']
+                                    else:
+                                        index = 0
+                                        while index < len(fall_classes):
+                                            class_and_credits = fall_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
+                                                # Proceed with the logic if the colon is found
+                                                # For example, split the string
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                fall_sem.append(class_item + ":" + str(credits_per_class))
+                                                index += 1
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(fall_sem) > 0:
+                                                        fall_sem.pop(len(fall_sem) - 1)
+                                                    first_choice = fall_classes[index - 1].get_text()
+
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = fall_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    fall_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        # do the same thing with spring classes
+                                        index = 0
+                                        while index < len(spring_classes):
+                                            class_and_credits = spring_classes[index].get_text()
+                                            try:
+                                                test = class_and_credits.index(":")
+                                                # Proceed with the logic if the colon is found
+                                                # For example, split the string
+                                                class_item = class_and_credits[0:test - 13].replace("….", "... -")
+                                                credits_per_class = class_and_credits[test + 2:test + 3]
+                                                spring_sem.append(class_item + ":" + str(credits_per_class))
+                                                index += 1
+                                            except ValueError:
+                                                # Skip the item or handle it in case of missing colon
+                                                # print("Colon not found, skipping this entry.")
+                                                if class_and_credits == "or":
+                                                    or_classes = []
+                                                    if len(spring_sem) > 0:
+                                                        spring_sem.pop(len(spring_sem) - 1)
+                                                    first_choice = spring_classes[index - 1].get_text()
+
+                                                    test = first_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = first_choice[0:test - 13]
+                                                    credits_per_class = first_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+
+                                                    second_choice = spring_classes[index + 1].get_text()
+                                                    test = second_choice.index(":")
+                                                    # Proceed with the logic if the colon is found
+                                                    # For example, split the string
+                                                    class_item = second_choice[0:test]
+                                                    credits_per_class = second_choice[test + 2:test + 3]
+                                                    or_classes.append(class_item + ":" + str(credits_per_class))
+                                                    spring_sem.append(or_classes)
+                                                    index += 2
+                                                else:
+                                                    index += 1
+                                        # add all the courses into the requirements
+                                        classes_and_requirements[degree[0]]["Fourth Year"]["Fall"] = fall_sem
+                                        classes_and_requirements[degree[0]]["Fourth Year"]["Spring"] = spring_sem
+                                # return
+                            # print(classes_and_requirements)
                         
             folder_path = 'csvs'
             file_name = 'bachelors.csv'
