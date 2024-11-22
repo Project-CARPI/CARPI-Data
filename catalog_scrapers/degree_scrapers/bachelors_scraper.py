@@ -59,7 +59,6 @@ def main():
                     name_link_pair = [name, href]
                     current_degrees.append(name_link_pair)
                 storage_ul.append(current_degrees)
-        
             # - All the degrees in each type
             # print(storage_ul)
             # - Type of degrees
@@ -83,7 +82,7 @@ def main():
                         #   Information Technology and Web Science: Completely different scraping format.
                         #   Music: ???
                         #   Physician-Scientist: spring_classes = all_leftpads[i]... -> NoneType object    
-                        if degree[0] == "Engineering Core Curriculum" or degree[0] == "Information Technology and Web Science B.S."  or degree[0] == "Physician-Scientist" or degree[0] == "Architecture, B.Arch.":
+                        if degree[0] == "Nuclear Engineering Curriculum (B.S)" or degree[0] == "Chemical Engineering, B.S." or degree[0] == "Information Technology and Web Science B.S."  or degree[0] == "Architecture, B.Arch.":
                             continue
                         classes_and_requirements[degree[0]] = {
                             "First Year": {
@@ -125,13 +124,20 @@ def main():
                                     spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
 
                                     fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
-                                    spring_val = spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
-                                    
+                                    spring_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
                                     if len(fall_val) > 1:
                                         lol = []
-                                        for i in range(0, len(fall_val)):
-                                            lol += fall_val[i].findAll('li')
-                                        print(lol)
+                                        for j in range(0, len(fall_val)):
+                                            lol += fall_val[j].findAll('li')
+
+                                        fall_val = lol
+
+                                    if len(spring_val) > 1:
+                                        lol = []
+                                        for j in range(0, len(spring_val)):
+                                            lol += spring_val[j].findAll('li')
+
+                                        spring_val = lol
 
                                     if i == 0:
                                         index = 0
@@ -254,7 +260,6 @@ def main():
                                                     or_classes.append(class_item + ":" + str(credits_per_class))
                                                     fall_sem.append(or_classes)
                                                     index += 2
-                                                    # testign
                                                 else:
                                                     index += 1
                                         # do the same thing with spring classes
@@ -299,8 +304,6 @@ def main():
                                         # add all the courses into the requirements
                                         classes_and_requirements[degree[0]]["Second Year"]["Fall"] = fall_sem
                                         classes_and_requirements[degree[0]]["Second Year"]["Spring"] = spring_sem
-                                        # print(classes_and_requirements)
-                                        # sys.exit(1)
                             elif degree[0] == "Physician-Scientist":
                                 for i in range(3):
                                     arch_sem = []
@@ -311,13 +314,20 @@ def main():
                                     spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
 
                                     fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
-                                    spring_val = spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
-                                    
+                                    spring_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
                                     if len(fall_val) > 1:
                                         lol = []
-                                        for i in range(0, len(fall_val)):
-                                            lol += fall_val[i].findAll('li')
-                                        print(lol)
+                                        for j in range(0, len(fall_val)):
+                                            lol += fall_val[j].findAll('li')
+
+                                        fall_val = lol
+
+                                    if len(spring_val) > 1:
+                                        lol = []
+                                        for j in range(0, len(spring_val)):
+                                            lol += spring_val[j].findAll('li')
+
+                                        spring_val = lol
 
                                     if i == 2:
                                         arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
@@ -582,8 +592,6 @@ def main():
                                         classes_and_requirements[degree[0]]["Third Year"]["Fall"] = fall_sem
                                         classes_and_requirements[degree[0]]["Third Year"]["Spring"] = ['ILEA 4400 - Independent Learning Experience:0']
                             else:
-
-
                                 for i in range(4):
                                     arch_sem = []
                                     fall_sem = []
@@ -593,13 +601,21 @@ def main():
                                     spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
 
                                     fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
-                                    spring_val = spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
-                                    
+                                    spring_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
                                     if len(fall_val) > 1:
                                         lol = []
-                                        for i in range(0, len(fall_val)):
-                                            lol += fall_val[i].findAll('li')
-                                        print(lol)
+                                        for j in range(0, len(fall_val)):
+                                            lol += fall_val[j].findAll('li')
+
+                                        fall_val = lol
+
+                                    if len(spring_val) > 1:
+                                        lol = []
+                                        for j in range(0, len(spring_val)):
+                                            lol += spring_val[j].findAll('li')
+
+                                        spring_val = lol
+
 
                                     if i == 2:
                                         arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
