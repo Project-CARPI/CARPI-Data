@@ -139,6 +139,26 @@ def main():
 
                                         spring_val = lol
 
+                                    if len(fall_val) > 1:
+                                        lol = []
+                                        for j in range(0, len(fall_val)):
+                                            lol += fall_val[j].findAll('li')
+
+                                        fall_val = lol
+
+                                    if len(spring_val) > 1:
+                                        lol = []
+                                        for j in range(0, len(spring_val)):
+                                            lol += spring_val[j].findAll('li')
+
+                                        spring_val = lol
+
+
+                                    if i == 2:
+                                        arch_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
+                                        fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+                                        # spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[2].find('ul').findAll('li')
+
                                     if i == 0:
                                         index = 0
                                         while index < len(fall_classes):
