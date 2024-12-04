@@ -120,11 +120,16 @@ def main():
                                 for i in range(2):
                                     fall_sem = []
                                     spring_sem = []
-                                    fall_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].find('ul').findAll('li')
-                                    spring_classes = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].find('ul').findAll('li')
+                                    fall_classes = []
+                                    spring_classes = []
 
                                     fall_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[0].findAll('ul')
                                     spring_val = all_leftpads[i].findAll('div', attrs={'class':'acalog-core'})[1].findAll('ul')
+
+                                    for a in fall_val:
+                                        fall_classes += a.findAll('li')
+                                    for b in spring_val:
+                                        spring_classes += b.findAll('li')
                                     if len(fall_val) > 1:
                                         lol = []
                                         for j in range(0, len(fall_val)):
