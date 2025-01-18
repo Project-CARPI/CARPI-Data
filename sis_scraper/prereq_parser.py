@@ -1,5 +1,4 @@
 import json
-from typing import List
 import re
 
 class PrereqLevel:
@@ -26,6 +25,8 @@ class PrereqLevel:
                 self.values.append(val)
             elif val.find(" or ") > -1 or val.find(" and ") > -1:
                 self.values.append(PrereqLevel(val, []))
+            else:
+                self.values.append(val)
 
     def set_id(self, id):
         self.id = id
@@ -33,12 +34,12 @@ class PrereqLevel:
     def get_levels(self):
         return [val for val in self.values if isinstance(val, PrereqLevel)]
 
-    def toJSON(self):
+    def to_json(self):
         return {
             "id": self.id,
             "type": self.type,
             "values": [
-                val.toJSON() if isinstance(val, PrereqLevel) else val
+                val.to_json() if isinstance(val, PrereqLevel) else val
                 for val in self.values
             ],
         }
@@ -113,7 +114,7 @@ def parse_prereq(course, string):
     parsed, values = parse_parentheses(course, string)
     level = PrereqLevel(parsed, values)
     add_level_ids(level)
-    return level.toJSON()
+    return level.to_json()
 
 
 def main():
