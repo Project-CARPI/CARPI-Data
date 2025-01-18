@@ -2,20 +2,17 @@ import json
 from typing import List
 import re
 
-OVERRIDE_REGEX = r"( and | or ) *Prerequisite Override [0-9]*$"
-
-
-class PrereqLevel(dict):
-    current_id = 0
-
+class PrereqLevel:
     def __init__(self, parsed: str, values):
-        self.id = PrereqLevel.current_id
-        PrereqLevel.current_id += 1
+        self.id = 0
         self.values = []
+
+        parsed = remove_prereq_override(parsed)
 
         if parsed.find(" or ") > -1 and parsed.find(" and ") > -1:
             print(f"Error: {parsed}")
             self.type = "CONFLICT"
+            self.values = [parsed]
         else:
             self.type = "and" if parsed.find(" and ") > -1 else "or"
             self.values = [
@@ -23,12 +20,18 @@ class PrereqLevel(dict):
                 for val in parsed.split(" " + self.type + " ")
                 if val.strip() != "()"
             ]
-        
+
         for val in values:
             if isinstance(val, PrereqLevel):
                 self.values.append(val)
             elif val.find(" or ") > -1 or val.find(" and ") > -1:
                 self.values.append(PrereqLevel(val, []))
+
+    def set_id(self, id):
+        self.id = id
+
+    def get_levels(self):
+        return [val for val in self.values if isinstance(val, PrereqLevel)]
 
     def toJSON(self):
         return {
@@ -86,9 +89,21 @@ def parse_parentheses(course, p_string):
 
 
 def remove_prereq_override(string):
+    OVERRIDE_REGEX = r"( and | or ) *Prerequisite Override [0-9]*$"
     while re.search(OVERRIDE_REGEX, string):
         string = re.sub(OVERRIDE_REGEX, "", string).strip()
     return string
+
+
+def add_level_ids(level: PrereqLevel):
+    level.set_id(0)
+    id = 1
+    levels = level.get_levels()
+    while len(levels) > 0:
+        current: PrereqLevel = levels.pop(0)
+        current.set_id(id)
+        id += 1
+        levels.extend(current.get_levels())
 
 
 def parse_prereq(course, string):
@@ -96,9 +111,9 @@ def parse_prereq(course, string):
         return {}
     string = remove_prereq_override(string)
     parsed, values = parse_parentheses(course, string)
-    level = PrereqLevel(parsed, values).toJSON()
-    PrereqLevel.current_id = 0
-    return level
+    level = PrereqLevel(parsed, values)
+    add_level_ids(level)
+    return level.toJSON()
 
 
 def main():
