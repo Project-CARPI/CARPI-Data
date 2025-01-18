@@ -1,7 +1,47 @@
 import json
+from typing import List
+import re
+
+OVERRIDE_REGEX = r"( and | or ) *Prerequisite Override [0-9]*$"
 
 
-def parse_parentheses(course, p_string, id):
+class PrereqLevel(dict):
+    current_id = 0
+
+    def __init__(self, parsed: str, values):
+        self.id = PrereqLevel.current_id
+        PrereqLevel.current_id += 1
+        self.values = []
+
+        if parsed.find(" or ") > -1 and parsed.find(" and ") > -1:
+            print(f"Error: {parsed}")
+            self.type = "CONFLICT"
+        else:
+            self.type = "and" if parsed.find(" and ") > -1 else "or"
+            self.values = [
+                val.strip()
+                for val in parsed.split(" " + self.type + " ")
+                if val.strip() != "()"
+            ]
+        
+        for val in values:
+            if isinstance(val, PrereqLevel):
+                self.values.append(val)
+            elif val.find(" or ") > -1 or val.find(" and ") > -1:
+                self.values.append(PrereqLevel(val, []))
+
+    def toJSON(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "values": [
+                val.toJSON() if isinstance(val, PrereqLevel) else val
+                for val in self.values
+            ],
+        }
+
+
+def parse_parentheses(course, p_string):
     parsed = ""
     stack = []
     current = ""
@@ -31,24 +71,34 @@ def parse_parentheses(course, p_string, id):
             current += char
         else:
             parsed += char
+
     if current != "":
         values.append(current)
+
     for val in values:
         if "(" in val and ")" in val:
-            id += 1
-            inner_parsed, inner_values = parse_parentheses(course, val, id)
-            new_c = {"id": id, "parsed": inner_parsed, "values": inner_values}
+            inner_parsed, inner_values = parse_parentheses(course, val)
+            new_c = PrereqLevel(inner_parsed, inner_values)
             values[values.index(val)] = new_c
     if len(stack) > 0:
         print(f"{course} - Unbalanced parentheses: Extra '('")
     return parsed, values
 
 
+def remove_prereq_override(string):
+    while re.search(OVERRIDE_REGEX, string):
+        string = re.sub(OVERRIDE_REGEX, "", string).strip()
+    return string
+
+
 def parse_prereq(course, string):
     if string == "":
         return {}
-    parsed, values = parse_parentheses(course, string, 0)
-    return {"id": 0, "parsed": parsed, "values": values}
+    string = remove_prereq_override(string)
+    parsed, values = parse_parentheses(course, string)
+    level = PrereqLevel(parsed, values).toJSON()
+    PrereqLevel.current_id = 0
+    return level
 
 
 def main():
