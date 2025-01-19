@@ -107,12 +107,32 @@ def add_level_ids(level: PrereqLevel):
         levels.extend(current.get_levels())
 
 
+def check_same_type(level: PrereqLevel):
+    for val in level.values:
+        if isinstance(val, PrereqLevel):
+            if val.type == level.type:
+                return True
+            if check_same_type(val):
+                return True
+    return False
+
+def remove_same_level(level: PrereqLevel):
+    for val in level.values:
+        if isinstance(val, PrereqLevel):
+            if val.type == level.type:
+                level.values.remove(val)
+                level.values.extend(val.values)
+            remove_same_level(val)
+
+
 def parse_prereq(course, string):
     if string == "":
         return {}
     string = remove_prereq_override(string)
     parsed, values = parse_parentheses(course, string)
     level = PrereqLevel(parsed, values)
+    while check_same_type(level):
+        remove_same_level(level)
     add_level_ids(level)
     return level.to_json()
 
