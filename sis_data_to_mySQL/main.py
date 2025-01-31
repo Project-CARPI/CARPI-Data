@@ -131,7 +131,7 @@ def insert_course_relationship(connection, data, year):
     SQL_DATA = SQL_DATA[:-1] + "ON DUPLICATE KEY UPDATE dept = dept;"
     execute_query(connection, SQL_DATA)
 
-def insert_course_attributes(connetion, data):
+def insert_course_attributes(connection, data):
     SQL_DATA = "INSERT INTO course_attribute (dept, code_num, attr) VALUES "
     for DEPARTMENT in data:
         for COURSE in data[DEPARTMENT]["courses"]:
