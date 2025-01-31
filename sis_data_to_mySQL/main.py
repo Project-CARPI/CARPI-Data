@@ -82,7 +82,7 @@ def insert_course_seats_data(connection, filename, data):
                 FILLED_SEATS += SECTION["registered"]
                 TOTAL_SEATS += SECTION["capacity"]
 
-            SQL_DATA += f"({SEMESTER_YEAR}, '{SEMESTER}', '{DEPARTMENT}', {CODE_NUM}, {FILLED_SEATS}, {TOTAL_SEATS}),"
+            SQL_DATA += f"({SEMESTER_YEAR}, '{SEMESTER}', '{DEPARTMENT}', '{CODE_NUM}', {FILLED_SEATS}, {TOTAL_SEATS}),"
     SQL_DATA = SQL_DATA[:-1] + ";"
     execute_query(connection, SQL_DATA)
 
@@ -99,7 +99,7 @@ def insert_professor_data(connection, filename, data):
             for SECTION in COURSE_DETAIL["sections"]:
                 for PROFESSOR_NAME in SECTION["instructor"]:
                     PROFESSOR_NAME = PROFESSOR_NAME.replace("'", "\\'")
-                    SQL_DATA += f"({SEMESTER_YEAR}, '{SEMESTER}', '{DEPARTMENT}', {CODE_NUM}, '{PROFESSOR_NAME}'),"
+                    SQL_DATA += f"({SEMESTER_YEAR}, '{SEMESTER}', '{DEPARTMENT}', '{CODE_NUM}', '{PROFESSOR_NAME}'),"
 
     SQL_DATA = SQL_DATA[:-1] + " ON DUPLICATE KEY UPDATE dept = dept;"
     execute_query(connection, SQL_DATA)
@@ -187,7 +187,7 @@ def main():
     print("Connecting to DB")
     connection = create_connection(HOST, PORT, USER, PASS, DB)
 
-    for files in os.walk('Data'):
+    for files in os.walk('data'):
         sorted_files = sorted(files[2], reverse=True)
         for file in sorted_files:
             print("File: " + file)
