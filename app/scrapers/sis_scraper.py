@@ -6,7 +6,8 @@ import time
 import aiohttp
 import bs4
 import lxml
-import utils
+
+from . import utils
 
 
 async def get_subjects(session, term):
@@ -502,8 +503,8 @@ async def get_course_detail(session, term, subject_code, course_code):
 
 async def main():
     total_start = time.time()
-    start_year = 2023
-    end_year = 2024
+    start_year = 2024
+    end_year = 2025
     for i in range(start_year, end_year + 1):
         for semester in ["fall", "spring", "summer"]:
             term = utils.get_term(i, semester)
