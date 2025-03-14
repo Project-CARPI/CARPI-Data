@@ -8,17 +8,13 @@ class PrereqLevel:
 
         parsed = remove_prereq_override(parsed)
 
-        if parsed.find(" or ") > -1 and parsed.find(" and ") > -1:
-            print(f"Error: {parsed}")
-            self.type = "CONFLICT"
-            self.values = [parsed]
-        else:
-            self.type = "and" if parsed.find(" and ") > -1 else "or"
-            self.values = [
-                val.strip()
-                for val in parsed.split(" " + self.type + " ")
-                if val.strip() != "()"
-            ]
+        self.type = "and" if parsed.find(" and ") > -1 else "or"
+        for val in parsed.split(" " + self.type + " "):
+            if val.strip() != "()":
+                if val.find(" or ") > -1 or val.find(" and ") > -1:
+                    self.values.append(PrereqLevel(val, []))
+                else:
+                    self.values.append(val.strip())
 
         for val in values:
             if isinstance(val, PrereqLevel):
