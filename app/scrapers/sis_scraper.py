@@ -12,6 +12,7 @@ from app import logger
 
 from . import scraper_utils
 
+_OUTPUT_DATA_DIR = os.path.join(os.path.dirname(__file__), "scraper_data")
 _is_scraper_running = False
 
 
@@ -523,8 +524,8 @@ async def main() -> None:
         logger.info("Cannot run scraper as it is already running")
         return False
     _is_scraper_running = True
-    if not os.path.exists("./data"):
-        os.makedirs("./data")
+    if not os.path.exists(_OUTPUT_DATA_DIR):
+        os.makedirs(_OUTPUT_DATA_DIR)
     total_start = time.time()
     start_year = 2024
     end_year = 2025
@@ -558,7 +559,7 @@ async def main() -> None:
                         "subject_name": subject_name,
                         "courses": courses,
                     }
-                with open(f"./data/{term}.json", "w") as f:
+                with open(f"{_OUTPUT_DATA_DIR}/{term}.json", "w") as f:
                     json.dump(all_courses, f, indent=4)
                 end = time.time()
                 logger.info(f"Time elapsed for term {term}: {end - start:.2f} s")
