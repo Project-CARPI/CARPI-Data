@@ -7,7 +7,11 @@ import aiohttp
 import bs4
 import lxml
 
-from . import utils
+from app import logger
+
+from . import scraper_utils
+
+_is_scraper_running = False
 
 
 async def get_subjects(session, term):
@@ -78,7 +82,6 @@ async def get_courses(session, term, subject_code):
         results = await asyncio.gather(*[task for task, _, _ in tasks])
 
         for task_result, (_, class_code, class_name) in zip(results, tasks):
-            # print(task_result)
             if task_result != None:
                 course_dict[class_code] = {
                     "course_name": class_name,
@@ -86,7 +89,9 @@ async def get_courses(session, term, subject_code):
                 }
 
         end = time.time()
-        print(f"Time taken to get {term} -> {subject_code}: {end - start} seconds")
+        logger.info(
+            f"Time taken to get {term} -> {subject_code}: {end - start} seconds"
+        )
         return course_dict
 
 
@@ -296,12 +301,14 @@ async def get_section_info(session, term, soup):
             days = section_row_info[2]
             location = section_row_info[3]
             if section_row_info[-1] != "TBA":
-                instructors_string = utils.clean_instructors(section_row_info[-1])
+                instructors_string = scraper_utils.clean_instructors(
+                    section_row_info[-1]
+                )
                 instructors = instructors_string.split(", ")
 
             days = days.replace("\xa0", " ")
 
-            for day in utils.map_day_codes_to_days(days):
+            for day in scraper_utils.map_day_codes_to_days(days):
                 day_info = {"time": time, "location": location}
                 schedule[day] = day_info
 
@@ -458,37 +465,45 @@ async def get_course_detail(session, term, subject_code, course_code):
                                 coreq_match = re.search(coreq_pattern, _, re.IGNORECASE)
                                 info["corequisite"] = [coreq_match.group(1).strip()]
                         except OSError as e:
-                            print(e)
-                            print(f"ERROR Coreq: {subject_code} - {course_code}")
+                            logger.error(e)
+                            logger.error(f"ERROR Coreq: {subject_code} - {course_code}")
                             info["corequisite"] = None
                     elif "Prerequisite:" in _:
                         try:
                             info["prerequisite"] = await parse_prereqs(soup)
                         except OSError as e:
-                            print(e)
-                            print(f"ERROR Prereq: {subject_code} - {course_code}")
+                            logger.error(e)
+                            logger.error(
+                                f"ERROR Prereq: {subject_code} - {course_code}"
+                            )
                             info["prerequisite"] = None
                     elif "Credit Hours:" in _:
                         try:
-                            min_max = utils.get_min_max(_.split(":")[1].strip())
+                            min_max = scraper_utils.get_min_max(_.split(":")[1].strip())
                             info["credits"] = {"min": min_max[0], "max": min_max[1]}
                         except OSError as e:
-                            print(e)
-                            print(f"ERROR Credit: {subject_code} - {course_code}")
+                            logger.error(e)
+                            logger.error(
+                                f"ERROR Credit: {subject_code} - {course_code}"
+                            )
                             info["credits"] = None
                     elif "When Offered: " in _:
                         try:
                             info["offered"] = _.split(":")[1].strip()
                         except OSError as e:
-                            print(e)
-                            print(f"ERROR Offered: {subject_code} - {course_code}")
+                            logger.error(e)
+                            logger.error(
+                                f"ERROR Offered: {subject_code} - {course_code}"
+                            )
                             info["offered"] = None
                     elif "Cross Listed:" in _:
                         try:
                             info["crosslist"] = [_.split(":")[1].strip()]
                         except OSError as e:
-                            print(e)
-                            print(f"ERROR crosslist: {subject_code} - {course_code}")
+                            logger.error(e)
+                            logger.error(
+                                f"ERROR crosslist: {subject_code} - {course_code}"
+                            )
                             info["crosslist"] = None
 
         info["crosslist"] = crosslist
@@ -501,14 +516,19 @@ async def get_course_detail(session, term, subject_code, course_code):
     return info
 
 
-async def main():
+async def main() -> None:
+    global _is_scraper_running
+    if _is_scraper_running:
+        logger.info("Cannot run scraper as it is already running")
+        return False
+    _is_scraper_running = True
     total_start = time.time()
     start_year = 2024
     end_year = 2025
     for i in range(start_year, end_year + 1):
         for semester in ["fall", "spring", "summer"]:
-            term = utils.get_term(i, semester)
-            print(f"Running Term: {term}")
+            term = scraper_utils.get_term(i, semester)
+            logger.info(f"Running Term: {term}")
             async with aiohttp.ClientSession() as session:
                 start = time.time()
                 subjects = await get_subjects(session, term=term)
@@ -537,10 +557,12 @@ async def main():
                 with open(f"./data/{term}.json", "w") as f:
                     json.dump(all_courses, f, indent=4)
                 end = time.time()
-                print(f"Time taken for {term}: {end - start} seconds")
+                logger.info(f"Time taken for {term}: {end - start} seconds")
 
     total_end = time.time()
-    print(f"Total time taken Total: {total_end - total_start} seconds")
+    logger.info(f"Total time taken Total: {total_end - total_start} seconds")
+    _is_scraper_running = False
+    return True
 
 
 if __name__ == "__main__":
