@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import re
 import time
 
@@ -89,8 +90,8 @@ async def get_courses(session, term, subject_code):
                 }
 
         end = time.time()
-        logger.info(
-            f"Time taken to get {term} -> {subject_code}: {end - start} seconds"
+        logger.debug(
+            f"Time taken to get term {term} -> Subject {subject_code}: {end - start:.2f} s"
         )
         return course_dict
 
@@ -522,13 +523,16 @@ async def main() -> None:
         logger.info("Cannot run scraper as it is already running")
         return False
     _is_scraper_running = True
+    if not os.path.exists("./data"):
+        os.makedirs("./data")
     total_start = time.time()
     start_year = 2024
     end_year = 2025
+    logger.info(f"Starting SIS course scraper for {start_year} - {end_year}")
     for i in range(start_year, end_year + 1):
         for semester in ["fall", "spring", "summer"]:
             term = scraper_utils.get_term(i, semester)
-            logger.info(f"Running Term: {term}")
+            logger.info(f"Scraping term {term}")
             async with aiohttp.ClientSession() as session:
                 start = time.time()
                 subjects = await get_subjects(session, term=term)
@@ -557,10 +561,10 @@ async def main() -> None:
                 with open(f"./data/{term}.json", "w") as f:
                     json.dump(all_courses, f, indent=4)
                 end = time.time()
-                logger.info(f"Time taken for {term}: {end - start} seconds")
+                logger.info(f"Time elapsed for term {term}: {end - start:.2f} s")
 
     total_end = time.time()
-    logger.info(f"Total time taken Total: {total_end - total_start} seconds")
+    logger.info(f"Total elapsed time: {total_end - total_start:.2f} s")
     _is_scraper_running = False
     return True
 
