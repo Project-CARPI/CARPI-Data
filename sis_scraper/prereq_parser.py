@@ -1,6 +1,7 @@
 import json
 import re
 
+
 class PrereqLevel:
     def __init__(self, parsed: str, values):
         self.id = 0
@@ -41,7 +42,11 @@ class PrereqLevel:
         }
 
 
-def parse_parentheses(course, p_string):
+class ParenthesisBalanceError(Exception):
+    pass
+
+
+def parse_parentheses(p_string):
     parsed = ""
     stack = []
     current = ""
@@ -64,7 +69,7 @@ def parse_parentheses(course, p_string):
                 current = ""
                 parsed += char
             else:
-                print(f"{course} - Unbalanced parentheses: Early ')'")
+                raise ParenthesisBalanceError(f"Unbalanced parentheses: Early ')'")
             if len(stack) > 0:
                 stack.pop()
         elif len(stack) > 0:
@@ -77,11 +82,11 @@ def parse_parentheses(course, p_string):
 
     for val in values:
         if "(" in val and ")" in val:
-            inner_parsed, inner_values = parse_parentheses(course, val)
+            inner_parsed, inner_values = parse_parentheses(val)
             new_c = PrereqLevel(inner_parsed, inner_values)
             values[values.index(val)] = new_c
     if len(stack) > 0:
-        print(f"{course} - Unbalanced parentheses: Extra '('")
+        raise ParenthesisBalanceError(f"Unbalanced parentheses: Extra '('")
     return parsed, values
 
 
@@ -112,6 +117,7 @@ def check_same_type(level: PrereqLevel):
                 return True
     return False
 
+
 def remove_same_level(level: PrereqLevel):
     for val in level.values:
         if isinstance(val, PrereqLevel):
@@ -125,7 +131,11 @@ def parse_prereq(course, string):
     if string == "":
         return {}
     string = remove_prereq_override(string)
-    parsed, values = parse_parentheses(course, string)
+    try:
+        parsed, values = parse_parentheses(string)
+    except ParenthesisBalanceError as e:
+        print(f"{course} - {e}")
+        return {}
     level = PrereqLevel(parsed, values)
     while check_same_type(level):
         remove_same_level(level)
