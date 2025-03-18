@@ -108,6 +108,22 @@ def add_level_ids(level: PrereqLevel):
         levels.extend(current.get_levels())
 
 
+def trim_codes(level: PrereqLevel):
+    for i in range(len(level.values)):
+        if isinstance(level.values[i], PrereqLevel):
+            trim_codes(level.values[i])
+        else:
+            level.values[i] = trim_code(level.values[i])
+
+
+def trim_code(code: str):
+    if code.find("Minimum Grade of") > -1:
+        code = code.split("Minimum Grade of")[0].strip()
+    if code.find(" level ") > -1:
+        code = code.split(" level ")[1].strip()
+    return code
+
+
 def check_same_type(level: PrereqLevel):
     for val in level.values:
         if isinstance(val, PrereqLevel):
@@ -140,6 +156,7 @@ def parse_prereq(course, string):
     while check_same_type(level):
         remove_same_level(level)
     add_level_ids(level)
+    trim_codes(level)
     return level.to_json()
 
 
