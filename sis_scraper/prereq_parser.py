@@ -175,6 +175,29 @@ def remove_empty_levels(level: PrereqLevel) -> bool:
     return len(level.values) == 0
 
 
+def fix_wildcards(level: PrereqLevel):
+    for i in range(len(level.values)):
+        if isinstance(level.values[i], PrereqLevel):
+            fix_wildcards(level.values[i])
+        else:
+            level.values[i] = fix_wildcard(level.values[i])
+
+
+def fix_wildcard(code: str):
+    dept = code[:4]
+    num = code[5:]
+    new_num = ""
+    CODE_LENGTH = 4
+    WILDCARD = "x"
+    for i in range(len(num)):
+        if num[i].isdigit():
+            new_num += num[i]
+        else:
+            new_num += WILDCARD
+    new_num = new_num.ljust(CODE_LENGTH, WILDCARD)[:CODE_LENGTH]
+    return dept + " " + new_num
+
+
 def parse_prereq(course, string):
     if string == "":
         return {}
@@ -193,6 +216,7 @@ def parse_prereq(course, string):
         remove_same_level(level)
     add_level_ids(level)
     trim_codes(level)
+    fix_wildcards(level)
     return level.to_json()
 
 
