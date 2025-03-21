@@ -7,8 +7,6 @@ class PrereqLevel:
         self.id = 0
         self.values = []
 
-        parsed = remove_prereq_override(parsed)
-
         self.type = "and" if parsed.find(" and ") > -1 else "or"
         for val in parsed.split(" " + self.type + " "):
             if val.strip() != "()":
@@ -90,13 +88,6 @@ def parse_parentheses(p_string):
     return parsed, values
 
 
-def remove_prereq_override(string):
-    OVERRIDE_REGEX = r"( and | or ) *Prerequisite Override [0-9]*$"
-    while re.search(OVERRIDE_REGEX, string):
-        string = re.sub(OVERRIDE_REGEX, "", string).strip()
-    return string
-
-
 def add_level_ids(level: PrereqLevel):
     level.set_id(0)
     id = 1
@@ -143,16 +134,61 @@ def remove_same_level(level: PrereqLevel):
             remove_same_level(val)
 
 
+def remove_prereq_overrides(level: PrereqLevel):
+    i = 0
+    while i < len(level.values):
+        if isinstance(level.values[i], PrereqLevel):
+            remove_prereq_overrides(level.values[i])
+        elif level.values[i].find("Prerequisite Override") > -1:
+            level.values.pop(i)
+            continue
+        i = i + 1
+
+
+def collapse_single_course_levels(level: PrereqLevel) -> bool:
+    i = 0
+    for i in range(len(level.values)):
+        if isinstance(level.values[i], PrereqLevel):
+            if collapse_single_course_levels(level.values[i]):
+                level.values[i] = level.values[i].values[0]
+    return len(level.values) == 1
+
+
+def set_default_type(level: PrereqLevel) -> bool:
+    i = 0
+    while i < len(level.values):
+        if isinstance(level.values[i], PrereqLevel):
+            set_default_type(level.values[i])
+        i = i + 1
+    if len(level.values) <= 1:
+        level.type = "or"
+
+
+def remove_empty_levels(level: PrereqLevel) -> bool:
+    i = 0
+    while i < len(level.values):
+        if isinstance(level.values[i], PrereqLevel):
+            if remove_empty_levels(level.values[i]):
+                level.values.pop(i)
+                continue
+        i = i + 1
+    return len(level.values) == 0
+
+
 def parse_prereq(course, string):
     if string == "":
         return {}
-    string = remove_prereq_override(string)
     try:
         parsed, values = parse_parentheses(string)
     except ParenthesisBalanceError as e:
         print(f"{course} - {e}")
         return {}
     level = PrereqLevel(parsed, values)
+    remove_prereq_overrides(level)
+    collapse_single_course_levels(level)
+    if remove_empty_levels(level):
+        return {}
+    set_default_type(level)
     while check_same_type(level):
         remove_same_level(level)
     add_level_ids(level)
