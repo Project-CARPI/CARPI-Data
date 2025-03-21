@@ -1,4 +1,3 @@
-import json
 import re
 
 
@@ -228,21 +227,3 @@ def parse_prereq(course, string):
     fix_wildcards(level)
     check_values(course, level)
     return level.to_json()
-
-
-def main():
-    stuff = {}
-    with open("./data/message.txt", "r") as file:
-        for line in file:
-            content = line.split(": ")
-            current_course = content[0]
-            prereq = content[1].strip()
-            json_structure = parse_prereq(current_course, prereq)
-            stuff[current_course] = json_structure
-
-    with open("./data/output.json", "w") as output:
-        json.dump(stuff, output, indent=2)
-
-
-if __name__ == "__main__":
-    main()
