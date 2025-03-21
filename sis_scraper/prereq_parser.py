@@ -198,6 +198,15 @@ def fix_wildcard(code: str):
     return dept + " " + new_num
 
 
+def check_values(course: str, level: PrereqLevel):
+    VALUE_CHECK_REGEX = r"^[A-Z]{4} ([0-9]|x){4}$"
+    for val in level.values:
+        if isinstance(val, PrereqLevel):
+            check_values(course, val)
+        elif re.match(VALUE_CHECK_REGEX, val) is None:
+            raise Exception("Error parsing prereqs for " + course + " - " + val)
+
+
 def parse_prereq(course, string):
     if string == "":
         return {}
@@ -217,6 +226,7 @@ def parse_prereq(course, string):
     add_level_ids(level)
     trim_codes(level)
     fix_wildcards(level)
+    check_values(course, level)
     return level.to_json()
 
 
