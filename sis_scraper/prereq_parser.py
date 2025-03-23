@@ -10,7 +10,7 @@ class PrereqLevel:
     the tree).
     """
 
-    def __init__(self, parsed: str, values: list[str | "PrereqLevel"]):
+    def __init__(self, parsed: str, values: list):
         """
         The constructor for the PrereqLevel class.
 
