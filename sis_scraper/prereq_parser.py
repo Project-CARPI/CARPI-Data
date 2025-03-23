@@ -174,10 +174,10 @@ def remove_same_level(level: PrereqLevel) -> None:
     """
     for val in level.values:
         if isinstance(val, PrereqLevel):
+            remove_same_level(val)
             if val.type == level.type:
                 level.values.remove(val)
                 level.values.extend(val.values)
-            remove_same_level(val)
 
 
 def remove_prereq_overrides(level: PrereqLevel) -> None:
