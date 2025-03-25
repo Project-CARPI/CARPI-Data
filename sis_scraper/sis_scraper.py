@@ -6,6 +6,7 @@ import time
 import lxml
 import re
 import utils
+from prereq_parser import parse_prereq
 
 async def get_subjects(session, term):
     subjects_dict = {}
@@ -97,11 +98,11 @@ async def parse_prereqs(soup):
     prereq_text_cleaned = re.sub(r'[()]', ' ', prereq_text_cleaned)
     prereq_text_cleaned = re.sub(r'\s+', ' ', prereq_text_cleaned).strip()
 
-    individual_prereq = prereq_text_cleaned.split(" and ")
-        
+    individual_prereq = prereq_text_cleaned
+
     if(individual_prereq == ""):
-        return []
-    return individual_prereq 
+        return {}
+    return parse_prereq(individual_prereq)
 
 async def fetch_CRNs(soup):
     CRNs = []
