@@ -171,7 +171,7 @@ def insert_course_restriction(connection, data):
                 for major in RESTRICTIONS["major"]:
                     SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Major', 'Must be', '{major}'),"
                 for not_major in RESTRICTIONS["not_major"]:
-                    SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Major', 'May not be', '{major}'),"
+                    SQL_DATA += f"('{DEPARTMENT}', '{CODE_NUM}', 'Major', 'May not be', '{not_major}'),"
 
                 # Level Restrictions
                 for level in RESTRICTIONS["level"]:
