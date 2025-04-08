@@ -9,7 +9,7 @@ def create_connection(host_name, port, user_name, user_password, db_name):
     connection = None
 
     try:
-        print("Attemping Connection")
+        print("Attempting Connection")
         connection = mysql.connector.connect(
             host=host_name,
             port=port,
