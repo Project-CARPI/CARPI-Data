@@ -35,8 +35,10 @@ async def get_subjects(
     params = {"term": term, "offset": 1, "max": 100}
     async with session.get(url, params=params) as response:
         response.raise_for_status()
-        data = await response.json()
-        return data
+        raw_data = await response.text()
+    raw_data = raw_data.replace("&amp;", "&")
+    data = json.loads(raw_data)
+    return data
 
 
 async def reset_class_search(session: aiohttp.ClientSession, term: str) -> None:
@@ -79,7 +81,9 @@ async def class_search(
     }
     async with session.get(url, params=params) as response:
         response.raise_for_status()
-        data = await response.json()
+        raw_data = await response.text()
+    raw_data = raw_data.replace("&amp;", "&")
+    data = json.loads(raw_data)
     course_data = data["data"]
     if course_data is None:
         return []
@@ -150,14 +154,14 @@ async def get_course_data(
     all the data into a single, manageable structure.
     """
     class_data = await class_search(session, term, subject)
-    parsed_data = {}
+    course_data = {}
     for entry in class_data:
         # Example course code: CSCI 1100
         course_code = f"{entry['subject']} {entry['courseNumber']}"
-        if course_code not in parsed_data:
+        if course_code not in course_data:
             # TODO: Fill all details except credits, offered, and sections on initial
             # parse. Aggregate data for the other fields as loop continues.
-            parsed_data[course_code] = {
+            course_data[course_code] = {
                 "course_name": entry["courseTitle"],
                 "course_detail": {
                     "description": "",
@@ -194,7 +198,7 @@ async def get_course_data(
                 },
             }
 
-        parsed_course_data = parsed_data[course_code]
+        parsed_course_data = course_data[course_code]
         parsed_course_details = parsed_course_data["course_detail"]
 
         parsed_course_credits = parsed_course_details["credits"]
@@ -205,7 +209,7 @@ async def get_course_data(
             parsed_course_credits["max"], entry["creditHourHigh"]
         )
 
-    return parsed_data
+    return course_data
 
 
 async def main():
@@ -214,15 +218,19 @@ async def main():
     obtained on the first request to any SIS page. The cookie should automatically be
     included in subsequent requests made with the same aiohttp session.
 
-    reset_course_search() must be called before each new attempt to fetch sections from
-    a different subject.
+    The term and subject search state on the SIS server must be reset before each attempt
+    to fetch classes from a term and subject.
     """
-    async with aiohttp.ClientSession() as session:
-        term = "202409"
-        subjects = await get_subjects(session, term)
-        await reset_class_search(session, term)
-        data = await class_search(session, term, subjects[0]["code"])
-        print(json.dumps(data, indent=4))
+    try:
+        async with aiohttp.ClientSession() as session:
+            term = "202409"
+            subjects = await get_subjects(session, term)
+            print(json.dumps(subjects, indent=4))
+            # await reset_class_search(session, term)
+            # data = await class_search(session, term, subjects[0]["code"])
+            # print(json.dumps(data, indent=4))
+    except:
+        return False
     return True
 
 
