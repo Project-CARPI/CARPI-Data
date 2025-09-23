@@ -7,7 +7,7 @@ import aiohttp
 import bs4
 
 
-class CourseColumn(str, Enum):
+class ClassColumn(str, Enum):
     COURSE_TITLE = "courseTitle"
     SUBJECT_DESCRIPTION = "subjectDescription"
     COURSE_NUMBER = "courseNumber"
@@ -39,11 +39,11 @@ async def get_subjects(
         return data
 
 
-async def reset_course_search(session: aiohttp.ClientSession, term: str) -> None:
+async def reset_class_search(session: aiohttp.ClientSession, term: str) -> None:
     """
     Resets the term and subject search state on the SIS server.
 
-    Must be called before each attempt to fetch courses from a subject in the given term.
+    Must be called before each attempt to fetch classes from a subject in the given term.
     Otherwise, the server will continue returning the same results from the last subject
     accessed, or no data if attempting to access data from a different term.
     """
@@ -53,16 +53,16 @@ async def reset_course_search(session: aiohttp.ClientSession, term: str) -> None
         response.raise_for_status()
 
 
-async def course_search(
+async def class_search(
     session: aiohttp.ClientSession,
     term: str,
     subject: str,
     max_size: int = 1000,
-    sort_column: CourseColumn = CourseColumn.SUBJECT_DESCRIPTION,
+    sort_column: ClassColumn = ClassColumn.SUBJECT_DESCRIPTION,
     sort_asc: bool = True,
 ) -> list[dict[str, str]]:
     """
-    Fetches the list of courses for a given subject and term from SIS.
+    Fetches the list of classes for a given subject and term from SIS.
 
     The term and subject search state on the SIS server must be reset before each call
     to this function.
@@ -86,7 +86,7 @@ async def course_search(
     return course_data
 
 
-async def get_course_details(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_details(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getClassDetails"
     )
@@ -97,54 +97,68 @@ async def get_course_details(session: aiohttp.ClientSession, term: str, crn: str
     soup = bs4.BeautifulSoup(text, "html5lib")
 
 
-async def get_course_description(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_description(session: aiohttp.ClientSession, term: str, crn: str):
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCourseDescription"
     params = {"term": term, "courseReferenceNumber": crn}
 
 
-async def get_course_attributes(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: str):
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionAttributes"
     params = {"term": term, "courseReferenceNumber": crn}
 
 
-async def get_course_restrictions(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getRestrictions"
     )
     params = {"term": term, "courseReferenceNumber": crn}
 
 
-async def get_course_corequisites(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_corequisites(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCorequisites"
     )
     params = {"term": term, "courseReferenceNumber": crn}
 
 
-async def get_course_prerequisites(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_prerequisites(session: aiohttp.ClientSession, term: str, crn: str):
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites"
     params = {"term": term, "courseReferenceNumber": crn}
 
 
-async def get_course_crosslists(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_crosslists(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getXlstSections"
     )
     params = {"term": term, "courseReferenceNumber": crn}
 
 
-async def parse_course_data(
-    course_data: list[dict[str, str]],
-) -> dict[str, dict[str, str | dict | list]]:
+async def get_course_data(
+    session: aiohttp.ClientSession, term: str, subject: str
+) -> list[dict]:
+    """
+    Gets all course data for a given term and subject.
+
+    In the context of this scraper, a "class" refers to a section of a course, while a
+    "course" refers to the overarching course that may have multiple classes.
+
+    The data returned from SIS is keyed by classes, not courses. This function
+    manipulates and aggregates this data such that the returned structure is keyed by
+    courses instead, with classes as a sub-field of each course.
+
+    Think of this as a main function that calls all other helper functions and aggregates
+    all the data into a single, manageable structure.
+    """
+    class_data = await class_search(session, term, subject)
     parsed_data = {}
-    for section in course_data:
+    for entry in class_data:
         # Example course code: CSCI 1100
-        course_code = f"{section['subject']} {section['courseNumber']}"
+        course_code = f"{entry['subject']} {entry['courseNumber']}"
         if course_code not in parsed_data:
             # TODO: Fill all details except credits, offered, and sections on initial
             # parse. Aggregate data for the other fields as loop continues.
             parsed_data[course_code] = {
-                "course_name": section["courseTitle"],
+                "course_name": entry["courseTitle"],
                 "course_detail": {
                     "description": "",
                     "corequisite": [],
@@ -160,21 +174,21 @@ async def parse_course_data(
                         "not_classification": [],
                     },
                     "credits": {
-                        "min": section["creditHourLow"],
-                        "max": section["creditHourHigh"],
+                        "min": entry["creditHourLow"],
+                        "max": entry["creditHourHigh"],
                     },
                     "offered": "",
                     "sections": [
                         {
-                            "CRN": section["courseReferenceNumber"],
+                            "CRN": entry["courseReferenceNumber"],
                             "instructor": [
                                 faculty_member["displayName"]
-                                for faculty_member in section["faculty"]
+                                for faculty_member in entry["faculty"]
                             ],
                             "schedule": {},
-                            "capacity": section["maximumEnrollment"],
-                            "registered": section["enrollment"],
-                            "open": section["seatsAvailable"],
+                            "capacity": entry["maximumEnrollment"],
+                            "registered": entry["enrollment"],
+                            "open": entry["seatsAvailable"],
                         }
                     ],
                 },
@@ -185,10 +199,10 @@ async def parse_course_data(
 
         parsed_course_credits = parsed_course_details["credits"]
         parsed_course_credits["min"] = min(
-            parsed_course_credits["min"], section["creditHourLow"]
+            parsed_course_credits["min"], entry["creditHourLow"]
         )
         parsed_course_credits["max"] = max(
-            parsed_course_credits["max"], section["creditHourHigh"]
+            parsed_course_credits["max"], entry["creditHourHigh"]
         )
 
     return parsed_data
@@ -200,7 +214,7 @@ async def main():
     obtained on the first request to any SIS page. The cookie should automatically be
     included in subsequent requests made with the same aiohttp session.
 
-    reset_course_search() must be called before each new attempt to fetch courses from
+    reset_course_search() must be called before each new attempt to fetch sections from
     a different subject.
     """
     async with aiohttp.ClientSession(
@@ -222,8 +236,8 @@ async def main():
     ) as session:
         term = "202409"
         subjects = await get_subjects(session, term)
-        await reset_course_search(session, term)
-        data = await course_search(session, term, subjects[0]["code"])
+        await reset_class_search(session, term)
+        data = await class_search(session, term, subjects[0]["code"])
         print(json.dumps(data, indent=4))
     return True
 
