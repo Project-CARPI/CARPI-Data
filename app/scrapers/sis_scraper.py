@@ -66,6 +66,8 @@ async def course_search(
 
     The term and subject search state on the SIS server must be reset before each call
     to this function.
+
+    Returned data format is very large; see docs for details.
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/searchResults?pageOffset=0"
     params = {
@@ -78,43 +80,118 @@ async def course_search(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         data = await response.json()
-        return data
+    course_data = data["data"]
+    if course_data is None:
+        return []
+    return course_data
 
 
 async def get_course_details(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getClassDetails"
     )
+    params = {"term": term, "courseReferenceNumber": crn}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        text = await response.text()
+    soup = bs4.BeautifulSoup(text, "html5lib")
 
 
 async def get_course_description(session: aiohttp.ClientSession, term: str, crn: str):
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCourseDescription"
+    params = {"term": term, "courseReferenceNumber": crn}
 
 
 async def get_course_attributes(session: aiohttp.ClientSession, term: str, crn: str):
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionAttributes"
+    params = {"term": term, "courseReferenceNumber": crn}
 
 
 async def get_course_restrictions(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getRestrictions"
     )
+    params = {"term": term, "courseReferenceNumber": crn}
 
 
 async def get_course_corequisites(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCorequisites"
     )
+    params = {"term": term, "courseReferenceNumber": crn}
 
 
 async def get_course_prerequisites(session: aiohttp.ClientSession, term: str, crn: str):
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites"
+    params = {"term": term, "courseReferenceNumber": crn}
 
 
 async def get_course_crosslists(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getXlstSections"
     )
+    params = {"term": term, "courseReferenceNumber": crn}
+
+
+async def parse_course_data(
+    course_data: list[dict[str, str]],
+) -> dict[str, dict[str, str | dict | list]]:
+    parsed_data = {}
+    for section in course_data:
+        # Example course code: CSCI 1100
+        course_code = f"{section['subject']} {section['courseNumber']}"
+        if course_code not in parsed_data:
+            # TODO: Fill all details except credits, offered, and sections on initial
+            # parse. Aggregate data for the other fields as loop continues.
+            parsed_data[course_code] = {
+                "course_name": section["courseTitle"],
+                "course_detail": {
+                    "description": "",
+                    "corequisite": [],
+                    "prerequisite": [],
+                    "crosslist": [],
+                    "attributes": [],
+                    "restrictions": {
+                        "major": [],
+                        "not_major": [],
+                        "level": [],
+                        "not_level": [],
+                        "classification": [],
+                        "not_classification": [],
+                    },
+                    "credits": {
+                        "min": section["creditHourLow"],
+                        "max": section["creditHourHigh"],
+                    },
+                    "offered": "",
+                    "sections": [
+                        {
+                            "CRN": section["courseReferenceNumber"],
+                            "instructor": [
+                                faculty_member["displayName"]
+                                for faculty_member in section["faculty"]
+                            ],
+                            "schedule": {},
+                            "capacity": section["maximumEnrollment"],
+                            "registered": section["enrollment"],
+                            "open": section["seatsAvailable"],
+                        }
+                    ],
+                },
+            }
+
+        parsed_course_data = parsed_data[course_code]
+        parsed_course_details = parsed_course_data["course_detail"]
+
+        parsed_course_credits = parsed_course_details["credits"]
+        parsed_course_credits["min"] = min(
+            parsed_course_credits["min"], section["creditHourLow"]
+        )
+        parsed_course_credits["max"] = max(
+            parsed_course_credits["max"], section["creditHourHigh"]
+        )
+
+    return parsed_data
 
 
 async def main():
@@ -147,7 +224,7 @@ async def main():
         subjects = await get_subjects(session, term)
         await reset_course_search(session, term)
         data = await course_search(session, term, subjects[0]["code"])
-        # print(json.dumps(data, indent=4))
+        print(json.dumps(data, indent=4))
     return True
 
 
