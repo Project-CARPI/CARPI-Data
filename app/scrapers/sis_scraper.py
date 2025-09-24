@@ -62,7 +62,7 @@ async def class_search(
     max_size: int = 1000,
     sort_column: ClassColumn = ClassColumn.SUBJECT_DESCRIPTION,
     sort_asc: bool = True,
-) -> list[dict[str, str]]:
+) -> list[dict]:
     """
     Fetches the list of classes for a given subject and term from SIS.
 
@@ -101,9 +101,43 @@ async def get_class_details(session: aiohttp.ClientSession, term: str, crn: str)
     soup = bs4.BeautifulSoup(text, "html5lib")
 
 
-async def get_class_description(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_description(
+    session: aiohttp.ClientSession, term: str, crn: str
+) -> dict[str, str]:
+    """
+    Fetches and parses data from the "Course Description" tab of a class details page.
+    """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCourseDescription"
     params = {"term": term, "courseReferenceNumber": crn}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    description_data = {
+        "description": "",
+        "when_offered": "",
+    }
+    soup = bs4.BeautifulSoup(raw_data, "html5lib")
+    description_tag = soup.find("section", {"aria-labelledby": "courseDescription"})
+    description_text = [
+        text.strip("\n").strip() for text in description_tag.text.split("\n")
+    ]
+    for text in description_text:
+        if text.startswith("When Offered:"):
+            description_data["when_offered"] = text.replace("When Offered: ", "")
+        # Skip useless fields that can be obtained elsewhere
+        elif text.startswith("Credit Hours:"):
+            continue
+        elif text.startswith("Contact, Lecture or Lab Hours:"):
+            continue
+        elif text.startswith("Prerequisite:"):
+            continue
+        elif text.startswith("Corequisite:"):
+            continue
+        elif text.startswith("Cross Listed:"):
+            continue
+        else:
+            description_data["description"] += text
+    return description_data
 
 
 async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: str):
@@ -156,6 +190,9 @@ async def get_course_data(
     class_data = await class_search(session, term, subject)
     course_data = {}
     for entry in class_data:
+        # Fetch class details not included in the main class search data
+        crn = entry["courseReferenceNumber"]
+        description_data = await get_class_description(session, term, crn)
         # Example course code: CSCI 1100
         course_code = f"{entry['subject']} {entry['courseNumber']}"
         if course_code not in course_data:
@@ -164,7 +201,7 @@ async def get_course_data(
             course_data[course_code] = {
                 "course_name": entry["courseTitle"],
                 "course_detail": {
-                    "description": "",
+                    "description": description_data["description"],
                     "corequisite": [],
                     "prerequisite": [],
                     "crosslist": [],
@@ -178,35 +215,38 @@ async def get_course_data(
                         "not_classification": [],
                     },
                     "credits": {
-                        "min": entry["creditHourLow"],
-                        "max": entry["creditHourHigh"],
+                        "min": 0,
+                        "max": float("inf"),
                     },
-                    "offered": "",
-                    "sections": [
-                        {
-                            "CRN": entry["courseReferenceNumber"],
-                            "instructor": [
-                                faculty_member["displayName"]
-                                for faculty_member in entry["faculty"]
-                            ],
-                            "schedule": {},
-                            "capacity": entry["maximumEnrollment"],
-                            "registered": entry["enrollment"],
-                            "open": entry["seatsAvailable"],
-                        }
-                    ],
+                    "offered": description_data["when_offered"],
+                    "sections": [],
                 },
             }
 
-        parsed_course_data = course_data[course_code]
-        parsed_course_details = parsed_course_data["course_detail"]
+        course_data = course_data[course_code]
+        course_details = course_data["course_detail"]
 
-        parsed_course_credits = parsed_course_details["credits"]
-        parsed_course_credits["min"] = min(
-            parsed_course_credits["min"], entry["creditHourLow"]
-        )
-        parsed_course_credits["max"] = max(
-            parsed_course_credits["max"], entry["creditHourHigh"]
+        course_credits = course_details["credits"]
+        course_credits["min"] = min(course_credits["min"], entry["creditHourLow"])
+        course_credits["max"] = max(course_credits["max"], entry["creditHourHigh"])
+
+        course_sections = course_details["sections"]
+
+        # Use faculty RCS IDs instead of names
+        section_faculty = [
+            faculty_member["emailAddress"].replace("@rpi.edu", "")
+            for faculty_member in entry["faculty"]
+        ]
+
+        course_sections.append(
+            {
+                "CRN": entry["courseReferenceNumber"],
+                "instructor": section_faculty,
+                "schedule": {},
+                "capacity": entry["maximumEnrollment"],
+                "registered": entry["enrollment"],
+                "open": entry["seatsAvailable"],
+            }
         )
 
     return course_data
@@ -225,11 +265,14 @@ async def main():
         async with aiohttp.ClientSession() as session:
             term = "202409"
             subjects = await get_subjects(session, term)
-            print(json.dumps(subjects, indent=4))
-            # await reset_class_search(session, term)
-            # data = await class_search(session, term, subjects[0]["code"])
-            # print(json.dumps(data, indent=4))
-    except:
+            await reset_class_search(session, term)
+            data = await class_search(session, term, subjects[0]["code"])
+            description = await get_class_description(
+                session, term, data[0]["courseReferenceNumber"]
+            )
+            print(json.dumps(description, indent=4))
+    except Exception as e:
+        print(e.with_traceback())
         return False
     return True
 
