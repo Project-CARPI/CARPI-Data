@@ -229,8 +229,12 @@ async def process_class_details(
     course_details = course_data["course_detail"]
 
     course_credits = course_details["credits"]
-    course_credits["min"] = min(course_credits["min"], class_entry["creditHourLow"])
-    course_credits["max"] = max(course_credits["max"], class_entry["creditHourHigh"])
+    course_credits["min"] = min(
+        course_credits["min"], class_entry["creditHourLow"] or 0
+    )
+    course_credits["max"] = max(
+        course_credits["max"], class_entry["creditHourHigh"] or 0
+    )
 
     course_sections = course_details["sections"]
     # Use faculty RCS IDs instead of names
@@ -251,10 +255,13 @@ async def process_class_details(
 
 
 async def get_course_data(
-    session: aiohttp.ClientSession, term: str, subject: str
-) -> list[dict]:
+    semaphore: asyncio.Semaphore, term: str, subject: str
+) -> dict:
     """
     Gets all course data for a given term and subject.
+
+    This function spawns its own client session to avoid session state conflicts with
+    other subjects that may be processing concurrently.
 
     In the context of this scraper, a "class" refers to a section of a course, while a
     "course" refers to the overarching course that may have multiple classes.
@@ -262,19 +269,34 @@ async def get_course_data(
     The data returned from SIS is keyed by classes, not courses. This function
     manipulates and aggregates this data such that the returned structure is keyed by
     courses instead, with classes as a sub-field of each course.
-
-    Think of this as a main function that calls all other helper functions and aggregates
-    all the data into a single, manageable structure.
     """
-    class_data = await class_search(session, term, subject)
-    course_data = {}
-    async with asyncio.TaskGroup() as tg:
-        for entry in class_data:
-            tg.create_task(process_class_details(session, course_data, entry))
-    return course_data
+
+    async with semaphore:
+        # Limit connections per session
+        connector = aiohttp.TCPConnector(limit_per_host=5)
+        timeout = aiohttp.ClientTimeout(total=60)
+
+        async with aiohttp.ClientSession(
+            connector=connector, timeout=timeout
+        ) as session:
+            try:
+                # Reset search state on server before fetching class data
+                await reset_class_search(session, term)
+                class_data = await class_search(session, term, subject)
+                course_data = {}
+                async with asyncio.TaskGroup() as tg:
+                    for entry in class_data:
+                        tg.create_task(
+                            process_class_details(session, course_data, entry)
+                        )
+                print(f"Completed processing subject: {subject}")
+                return course_data
+            except aiohttp.ClientError as e:
+                print(f"Error processing subject {subject}: {e}")
+                return {}
 
 
-async def main():
+async def main() -> bool:
     """
     A JSESSIONID cookie is required before accessing any course data, which can be
     obtained on the first request to any SIS page. The cookie should automatically be
@@ -284,37 +306,48 @@ async def main():
     to fetch classes from a term and subject.
     """
 
-    # Helper function to reset search state and fetch course data for a subject
-    async def reset_and_get_course_data(
-        session: aiohttp.ClientSession, term: str, subject: str
-    ):
-        await reset_class_search(session, term)
-        return await get_course_data(session, term, subject)
-
     term = "202509"
     all_course_data = {}
 
     try:
+        # Limit concurrent client sessions
+        semaphore = asyncio.Semaphore(10)
+
+        print("Fetching subject list...")
         async with aiohttp.ClientSession() as session:
             subjects = await get_subjects(session, term)
-            tasks = []
+        print(f"Found {len(subjects)} subjects")
+
+        # Stores all course data for a term
+        all_course_data = {}
+
+        # Process subjects in parallel, each with its own session
+        tasks: list[asyncio.Task] = []
+        async with asyncio.TaskGroup() as tg:
             for subject in subjects:
-                all_course_data[subject["code"]] = {
+                subject_code = subject["code"]
+                all_course_data[subject_code] = {
                     "subject_name": subject["description"],
                     "courses": {},
                 }
-                tasks.append(
-                    asyncio.create_task(
-                        reset_and_get_course_data(session, term, subject["code"])
-                    )
-                )
-            task_results = await asyncio.gather(*tasks)
+                task = tg.create_task(get_course_data(semaphore, term, subject_code))
+                tasks.append(task)
+
         for i, subject in enumerate(subjects):
-            all_course_data[subject["code"]]["courses"] = task_results[i]
+            course_data = tasks[i].result()
+            all_course_data[subject["code"]]["courses"] = course_data
+
+        # Write all data for term to JSON file
         with open(f"{term}.json", "w") as f:
             json.dump(all_course_data, f, indent=4)
+
+        print(f"Successfully processed {len(all_course_data)} subjects")
+
     except Exception as e:
-        print(e.with_traceback())
+        print(f"Error in main: {e}")
+        import traceback
+
+        traceback.print_exc()
         return False
     return True
 
