@@ -152,15 +152,15 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
     params = {"term": term, "courseReferenceNumber": crn}
 
 
+async def get_class_prerequisites(session: aiohttp.ClientSession, term: str, crn: str):
+    url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites"
+    params = {"term": term, "courseReferenceNumber": crn}
+
+
 async def get_class_corequisites(session: aiohttp.ClientSession, term: str, crn: str):
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCorequisites"
     )
-    params = {"term": term, "courseReferenceNumber": crn}
-
-
-async def get_class_prerequisites(session: aiohttp.ClientSession, term: str, crn: str):
-    url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites"
     params = {"term": term, "courseReferenceNumber": crn}
 
 
@@ -169,6 +169,85 @@ async def get_class_crosslists(session: aiohttp.ClientSession, term: str, crn: s
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getXlstSections"
     )
     params = {"term": term, "courseReferenceNumber": crn}
+
+
+async def process_class_details(
+    session: aiohttp.ClientSession, course_data: dict, class_entry: dict
+) -> None:
+    """
+    Fetches and parses all details for a given class, populating the provided course
+    data dictionary.
+    """
+    # Fetch class details not included in main class details
+    term = class_entry["term"]
+    crn = class_entry["courseReferenceNumber"]
+    async with asyncio.TaskGroup() as tg:
+        description_task = tg.create_task(get_class_description(session, term, crn))
+        # attributes_task = tg.create_task(get_class_attributes(session, term, crn))
+        # restrictions_task = tg.create_task(get_class_restrictions(session, term, crn))
+        # prerequisites_task = tg.create_task(get_class_prerequisites(session, term, crn))
+        # corequisites_task = tg.create_task(get_class_corequisites(session, term, crn))
+        # crosslists_task = tg.create_task(get_class_crosslists(session, term, crn))
+
+    # Wait for tasks to complete and get results
+    description_data = description_task.result()
+    # attributes_data = attributes_task.result()
+    # restrictions_data = restrictions_task.result()
+    # prerequisites_data = prerequisites_task.result()
+    # corequisites_data = corequisites_task.result()
+    # crosslists_data = crosslists_task.result()
+
+    # Example course code: CSCI 1100
+    course_code = f"{class_entry['subject']} {class_entry['courseNumber']}"
+    if course_code not in course_data:
+        course_data[course_code] = {
+            "course_name": class_entry["courseTitle"],
+            "course_detail": {
+                "description": description_data["description"],
+                "corequisite": [],
+                "prerequisite": [],
+                "crosslist": [],
+                "attributes": [],
+                "restrictions": {
+                    "major": [],
+                    "not_major": [],
+                    "level": [],
+                    "not_level": [],
+                    "classification": [],
+                    "not_classification": [],
+                },
+                "credits": {
+                    "min": 0,
+                    "max": float("inf"),
+                },
+                "offered": description_data["when_offered"],
+                "sections": [],
+            },
+        }
+
+    course_data = course_data[course_code]
+    course_details = course_data["course_detail"]
+
+    course_credits = course_details["credits"]
+    course_credits["min"] = min(course_credits["min"], class_entry["creditHourLow"])
+    course_credits["max"] = max(course_credits["max"], class_entry["creditHourHigh"])
+
+    course_sections = course_details["sections"]
+    # Use faculty RCS IDs instead of names
+    section_faculty = [
+        faculty_member["emailAddress"].replace("@rpi.edu", "")
+        for faculty_member in class_entry["faculty"]
+    ]
+    course_sections.append(
+        {
+            "CRN": class_entry["courseReferenceNumber"],
+            "instructor": section_faculty,
+            "schedule": {},
+            "capacity": class_entry["maximumEnrollment"],
+            "registered": class_entry["enrollment"],
+            "open": class_entry["seatsAvailable"],
+        }
+    )
 
 
 async def get_course_data(
@@ -189,66 +268,9 @@ async def get_course_data(
     """
     class_data = await class_search(session, term, subject)
     course_data = {}
-    for entry in class_data:
-        # Fetch class details not included in the main class search data
-        crn = entry["courseReferenceNumber"]
-        description_data = await get_class_description(session, term, crn)
-        # Example course code: CSCI 1100
-        course_code = f"{entry['subject']} {entry['courseNumber']}"
-        if course_code not in course_data:
-            # TODO: Fill all details except credits, offered, and sections on initial
-            # parse. Aggregate data for the other fields as loop continues.
-            course_data[course_code] = {
-                "course_name": entry["courseTitle"],
-                "course_detail": {
-                    "description": description_data["description"],
-                    "corequisite": [],
-                    "prerequisite": [],
-                    "crosslist": [],
-                    "attributes": [],
-                    "restrictions": {
-                        "major": [],
-                        "not_major": [],
-                        "level": [],
-                        "not_level": [],
-                        "classification": [],
-                        "not_classification": [],
-                    },
-                    "credits": {
-                        "min": 0,
-                        "max": float("inf"),
-                    },
-                    "offered": description_data["when_offered"],
-                    "sections": [],
-                },
-            }
-
-        course_data = course_data[course_code]
-        course_details = course_data["course_detail"]
-
-        course_credits = course_details["credits"]
-        course_credits["min"] = min(course_credits["min"], entry["creditHourLow"])
-        course_credits["max"] = max(course_credits["max"], entry["creditHourHigh"])
-
-        course_sections = course_details["sections"]
-
-        # Use faculty RCS IDs instead of names
-        section_faculty = [
-            faculty_member["emailAddress"].replace("@rpi.edu", "")
-            for faculty_member in entry["faculty"]
-        ]
-
-        course_sections.append(
-            {
-                "CRN": entry["courseReferenceNumber"],
-                "instructor": section_faculty,
-                "schedule": {},
-                "capacity": entry["maximumEnrollment"],
-                "registered": entry["enrollment"],
-                "open": entry["seatsAvailable"],
-            }
-        )
-
+    async with asyncio.TaskGroup() as tg:
+        for entry in class_data:
+            tg.create_task(process_class_details(session, course_data, entry))
     return course_data
 
 
@@ -261,16 +283,36 @@ async def main():
     The term and subject search state on the SIS server must be reset before each attempt
     to fetch classes from a term and subject.
     """
+
+    # Helper function to reset search state and fetch course data for a subject
+    async def reset_and_get_course_data(
+        session: aiohttp.ClientSession, term: str, subject: str
+    ):
+        await reset_class_search(session, term)
+        return await get_course_data(session, term, subject)
+
+    term = "202509"
+    all_course_data = {}
+
     try:
         async with aiohttp.ClientSession() as session:
-            term = "202409"
             subjects = await get_subjects(session, term)
-            await reset_class_search(session, term)
-            data = await class_search(session, term, subjects[0]["code"])
-            description = await get_class_description(
-                session, term, data[0]["courseReferenceNumber"]
-            )
-            print(json.dumps(description, indent=4))
+            tasks = []
+            for subject in subjects:
+                all_course_data[subject["code"]] = {
+                    "subject_name": subject["description"],
+                    "courses": {},
+                }
+                tasks.append(
+                    asyncio.create_task(
+                        reset_and_get_course_data(session, term, subject["code"])
+                    )
+                )
+            task_results = await asyncio.gather(*tasks)
+        for i, subject in enumerate(subjects):
+            all_course_data[subject["code"]]["courses"] = task_results[i]
+        with open(f"{term}.json", "w") as f:
+            json.dump(all_course_data, f, indent=4)
     except Exception as e:
         print(e.with_traceback())
         return False
