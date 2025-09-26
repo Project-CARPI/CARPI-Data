@@ -289,6 +289,7 @@ async def get_course_data(
             try:
                 # Reset search state on server before fetching class data
                 await reset_class_search(session, term)
+                print(f"Processing subject: {subject}")
                 class_data = await class_search(session, term, subject)
                 course_data = {}
                 async with asyncio.TaskGroup() as tg:
@@ -320,7 +321,7 @@ async def main() -> bool:
         # Limit concurrent client sessions
         semaphore = asyncio.Semaphore(10)
 
-        print("Fetching subject list...")
+        print(f"Fetching subject list for term: {term}")
         async with aiohttp.ClientSession() as session:
             subjects = await get_subjects(session, term)
         print(f"Found {len(subjects)} subjects")
