@@ -178,6 +178,9 @@ async def process_class_details(
     Fetches and parses all details for a given class, populating the provided course
     data dictionary.
     """
+    print(
+        f"Processing class: {class_entry['subject']} {class_entry['courseNumber']} - {class_entry['sequenceNumber']}"
+    )
     # Fetch class details not included in main class details
     term = class_entry["term"]
     crn = class_entry["courseReferenceNumber"]
@@ -238,14 +241,18 @@ async def process_class_details(
 
     course_sections = course_details["sections"]
     # Use faculty RCS IDs instead of names
-    section_faculty = [
-        faculty_member["emailAddress"].replace("@rpi.edu", "")
-        for faculty_member in class_entry["faculty"]
-    ]
+    class_faculty = class_entry["faculty"]
+    class_faculty_rcsids = []
+    for faculty in class_faculty:
+        rcsid = f"Unknown RCSID ({faculty['displayName']})"
+        if "emailAddress" in faculty and faculty["emailAddress"] is not None:
+            rcsid = faculty["emailAddress"].replace("@rpi.edu", "")
+        class_faculty_rcsids.append(rcsid)
+
     course_sections.append(
         {
             "CRN": class_entry["courseReferenceNumber"],
-            "instructor": section_faculty,
+            "instructor": class_faculty_rcsids,
             "schedule": {},
             "capacity": class_entry["maximumEnrollment"],
             "registered": class_entry["enrollment"],
@@ -285,9 +292,9 @@ async def get_course_data(
                 class_data = await class_search(session, term, subject)
                 course_data = {}
                 async with asyncio.TaskGroup() as tg:
-                    for entry in class_data:
+                    for class_entry in class_data:
                         tg.create_task(
-                            process_class_details(session, course_data, entry)
+                            process_class_details(session, course_data, class_entry)
                         )
                 print(f"Completed processing subject: {subject}")
                 return course_data
@@ -338,6 +345,7 @@ async def main() -> bool:
             all_course_data[subject["code"]]["courses"] = course_data
 
         # Write all data for term to JSON file
+        print("Writing data to JSON file")
         with open(f"{term}.json", "w") as f:
             json.dump(all_course_data, f, indent=4)
 
