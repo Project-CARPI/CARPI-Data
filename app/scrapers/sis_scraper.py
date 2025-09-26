@@ -6,6 +6,8 @@ from enum import Enum
 import aiohttp
 import bs4
 
+OUTPUT_DATA_DIR = "data"
+
 
 class ClassColumn(str, Enum):
     COURSE_TITLE = "courseTitle"
@@ -178,9 +180,9 @@ async def process_class_details(
     Fetches and parses all details for a given class, populating the provided course
     data dictionary.
     """
-    print(
-        f"Processing class: {class_entry['subject']} {class_entry['courseNumber']} - {class_entry['sequenceNumber']}"
-    )
+    # print(
+    #     f"Processing class: {class_entry['subject']} {class_entry['courseNumber']} - {class_entry['sequenceNumber']}"
+    # )
     # Fetch class details not included in main class details
     term = class_entry["term"]
     crn = class_entry["courseReferenceNumber"]
@@ -262,7 +264,10 @@ async def process_class_details(
 
 
 async def get_course_data(
-    semaphore: asyncio.Semaphore, term: str, subject: str
+    term: str,
+    subject: str,
+    semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
+    limit_per_host: int = 5,
 ) -> dict:
     """
     Gets all course data for a given term and subject.
@@ -279,8 +284,8 @@ async def get_course_data(
     """
 
     async with semaphore:
-        # Limit connections per session
-        connector = aiohttp.TCPConnector(limit_per_host=5)
+        # Limit simultaneous connections per session
+        connector = aiohttp.TCPConnector(limit_per_host=limit_per_host)
         timeout = aiohttp.ClientTimeout(total=60)
 
         async with aiohttp.ClientSession(
@@ -289,7 +294,7 @@ async def get_course_data(
             try:
                 # Reset search state on server before fetching class data
                 await reset_class_search(session, term)
-                print(f"Processing subject: {subject}")
+                # print(f"Processing subject: {subject}")
                 class_data = await class_search(session, term, subject)
                 course_data = {}
                 async with asyncio.TaskGroup() as tg:
@@ -297,11 +302,73 @@ async def get_course_data(
                         tg.create_task(
                             process_class_details(session, course_data, class_entry)
                         )
-                print(f"Completed processing subject: {subject}")
+                # print(f"Completed processing subject: {subject}")
                 return course_data
             except aiohttp.ClientError as e:
-                print(f"Error processing subject {subject}: {e}")
+                print(f"Error processing subject {subject} in term {term}: {e}")
                 return {}
+
+
+async def get_term_data(
+    term: str,
+    semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
+    limit_per_host: int = 5,
+) -> dict:
+    """
+    Gets all course data for a given term, which includes all subjects in the term.
+
+    This function spawns a client session for each subject to be processed in the term.
+    A semaphore is used to limit the number of concurrent sessions, and an additional
+    limit is placed on the number of simultaneous connections per session.
+
+    Writes data to a JSON file after all subjects in the term have been processed.
+    """
+    print(f"Fetching subject list for term: {term}")
+    async with aiohttp.ClientSession() as session:
+        subjects = await get_subjects(session, term)
+    print(f"Found {len(subjects)} subjects for term: {term}")
+
+    # Stores all course data for the term
+    all_course_data = {}
+
+    # Process subjects in parallel, each with its own session
+    tasks: list[asyncio.Task] = []
+    async with asyncio.TaskGroup() as tg:
+        for subject in subjects:
+            subject_code = subject["code"]
+            all_course_data[subject_code] = {
+                "subject_name": subject["description"],
+                "courses": {},
+            }
+            task = tg.create_task(
+                get_course_data(term, subject_code, semaphore, limit_per_host)
+            )
+            tasks.append(task)
+
+    for i, subject in enumerate(subjects):
+        course_data = tasks[i].result()
+        all_course_data[subject["code"]]["courses"] = course_data
+
+    # Write all data for term to JSON file
+    output_json_path = f"{OUTPUT_DATA_DIR}/{term}.json"
+    print(f"Writing data to {output_json_path}")
+    with open(output_json_path, "w") as f:
+        json.dump(all_course_data, f, indent=4)
+
+
+def get_term(year: int, season: str) -> str:
+    """
+    Converts a year and academic season into a term code used by SIS.
+    """
+    season_lower = season.lower()
+    if season_lower == "fall":
+        return f"{year}09"
+    elif season_lower == "summer":
+        return f"{year}05"
+    elif season_lower == "spring":
+        return f"{year}01"
+    else:
+        return ""
 
 
 async def main() -> bool:
@@ -313,44 +380,21 @@ async def main() -> bool:
     The term and subject search state on the SIS server must be reset before each attempt
     to fetch classes from a term and subject.
     """
-
-    term = "202509"
-    all_course_data = {}
+    start_year = 2023
+    end_year = 2025
+    seasons = ["spring", "summer", "fall"]
 
     try:
         # Limit concurrent client sessions
-        semaphore = asyncio.Semaphore(10)
+        semaphore = asyncio.Semaphore(50)
 
-        print(f"Fetching subject list for term: {term}")
-        async with aiohttp.ClientSession() as session:
-            subjects = await get_subjects(session, term)
-        print(f"Found {len(subjects)} subjects")
-
-        # Stores all course data for a term
-        all_course_data = {}
-
-        # Process subjects in parallel, each with its own session
-        tasks: list[asyncio.Task] = []
         async with asyncio.TaskGroup() as tg:
-            for subject in subjects:
-                subject_code = subject["code"]
-                all_course_data[subject_code] = {
-                    "subject_name": subject["description"],
-                    "courses": {},
-                }
-                task = tg.create_task(get_course_data(semaphore, term, subject_code))
-                tasks.append(task)
-
-        for i, subject in enumerate(subjects):
-            course_data = tasks[i].result()
-            all_course_data[subject["code"]]["courses"] = course_data
-
-        # Write all data for term to JSON file
-        print("Writing data to JSON file")
-        with open(f"{term}.json", "w") as f:
-            json.dump(all_course_data, f, indent=4)
-
-        print(f"Successfully processed {len(all_course_data)} subjects")
+            for year in range(start_year, end_year + 1):
+                for season in seasons:
+                    term = get_term(year, season)
+                    if term == "":
+                        continue
+                    tg.create_task(get_term_data(term, semaphore))
 
     except Exception as e:
         print(f"Error in main: {e}")
