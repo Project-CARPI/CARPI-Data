@@ -330,7 +330,8 @@ async def get_course_data(
                             process_class_details(session, course_data, class_entry)
                         )
                 # print(f"Completed processing subject: {subject}")
-                return course_data
+                # Return data sorted by course code
+                return dict(sorted(course_data.items()))
             except aiohttp.ClientError as e:
                 print(f"Error processing subject {subject} in term {term}: {e}")
                 return {}
