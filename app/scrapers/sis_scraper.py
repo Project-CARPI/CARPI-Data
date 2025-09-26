@@ -217,8 +217,8 @@ async def process_class_details(
                     "not_classification": [],
                 },
                 "credits": {
-                    "min": 0,
-                    "max": float("inf"),
+                    "min": float("inf"),
+                    "max": 0,
                 },
                 "offered": description_data["when_offered"],
                 "sections": [],
