@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from enum import Enum
+from pathlib import Path
 
 import aiohttp
 import bs4
@@ -108,6 +109,12 @@ async def get_class_description(
 ) -> dict[str, str]:
     """
     Fetches and parses data from the "Course Description" tab of a class details page.
+
+    Returned data format is as follows:
+    {
+        "description": "This course provides an introduction to ...",
+        "when_offered": "Spring, Summer, and Fall"
+    }
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCourseDescription"
     params = {"term": term, "courseReferenceNumber": crn}
@@ -143,11 +150,17 @@ async def get_class_description(
 
 
 async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: str):
+    """
+    Fetches and parses data from the "Attributes" tab of a class details page.
+    """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionAttributes"
     params = {"term": term, "courseReferenceNumber": crn}
 
 
 async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn: str):
+    """
+    Fetches and parses data from the "Restrictions" tab of a class details page.
+    """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getRestrictions"
     )
@@ -155,11 +168,17 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
 
 
 async def get_class_prerequisites(session: aiohttp.ClientSession, term: str, crn: str):
+    """
+    Fetches and parses data from the "Prerequisites" tab of a class details page.
+    """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites"
     params = {"term": term, "courseReferenceNumber": crn}
 
 
 async def get_class_corequisites(session: aiohttp.ClientSession, term: str, crn: str):
+    """
+    Fetches and parses data from the "Corequisites" tab of a class details page.
+    """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCorequisites"
     )
@@ -167,6 +186,9 @@ async def get_class_corequisites(session: aiohttp.ClientSession, term: str, crn:
 
 
 async def get_class_crosslists(session: aiohttp.ClientSession, term: str, crn: str):
+    """
+    Fetches and parses data from the "Cross Listed" tab of a class details page.
+    """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getXlstSections"
     )
@@ -178,7 +200,9 @@ async def process_class_details(
 ) -> None:
     """
     Fetches and parses all details for a given class, populating the provided course
-    data dictionary.
+    data dictionary or adding to existing entries as appropriate.
+
+    Takes as input class data fetched from SIS's class search endpoint.
     """
     # print(
     #     f"Processing class: {class_entry['subject']} {class_entry['courseNumber']} - {class_entry['sequenceNumber']}"
@@ -266,14 +290,17 @@ async def process_class_details(
 async def get_course_data(
     term: str,
     subject: str,
-    semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
+    semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
     limit_per_host: int = 5,
 ) -> dict:
     """
     Gets all course data for a given term and subject.
 
     This function spawns its own client session to avoid session state conflicts with
-    other subjects that may be processing concurrently.
+    other subjects that may be processing concurrently. Optionally accepts a semaphore
+    to limit the number of concurrent sessions between multiple calls to this function,
+    as well as a limit on the number of simultaneous connections a session can make to
+    the SIS server.
 
     In the context of this scraper, a "class" refers to a section of a course, while a
     "course" refers to the overarching course that may have multiple classes.
@@ -284,7 +311,7 @@ async def get_course_data(
     """
 
     async with semaphore:
-        # Limit simultaneous connections per session
+        # Limit simultaneous connections to SIS server per session
         connector = aiohttp.TCPConnector(limit_per_host=limit_per_host)
         timeout = aiohttp.ClientTimeout(total=60)
 
@@ -313,15 +340,17 @@ async def get_term_data(
     term: str,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
+    output_path: Path | str = None,
 ) -> dict:
     """
     Gets all course data for a given term, which includes all subjects in the term.
 
     This function spawns a client session for each subject to be processed in the term.
     A semaphore is used to limit the number of concurrent sessions, and an additional
-    limit is placed on the number of simultaneous connections per session.
+    limit is placed on the number of simultaneous connections a session can make to the
+    SIS server.
 
-    Writes data to a JSON file after all subjects in the term have been processed.
+    Writes data as JSON after all subjects in the term have been processed.
     """
     print(f"Fetching subject list for term: {term}")
     async with aiohttp.ClientSession() as session:
@@ -345,14 +374,21 @@ async def get_term_data(
             )
             tasks.append(task)
 
+    # Wait for all tasks to complete and gather results
     for i, subject in enumerate(subjects):
         course_data = tasks[i].result()
         all_course_data[subject["code"]]["courses"] = course_data
 
     # Write all data for term to JSON file
-    output_json_path = f"{OUTPUT_DATA_DIR}/{term}.json"
-    print(f"Writing data to {output_json_path}")
-    with open(output_json_path, "w") as f:
+    if output_path is None:
+        output_path = Path(f"data/{term}.json")
+    elif isinstance(output_path, str):
+        output_path = Path(output_path)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"Writing data to {output_path}")
+    with output_path.open("w") as f:
         json.dump(all_course_data, f, indent=4)
 
 
@@ -360,7 +396,9 @@ def get_term(year: int, season: str) -> str:
     """
     Converts a year and academic season into a term code used by SIS.
     """
-    season_lower = season.lower()
+    if season is None:
+        return ""
+    season_lower = season.lower().strip()
     if season_lower == "fall":
         return f"{year}09"
     elif season_lower == "summer":
@@ -371,22 +409,30 @@ def get_term(year: int, season: str) -> str:
         return ""
 
 
-async def main() -> bool:
+async def main(start_year: int, end_year: int, seasons: list[str] = None) -> bool:
     """
-    A JSESSIONID cookie is required before accessing any course data, which can be
-    obtained on the first request to any SIS page. The cookie should automatically be
-    included in subsequent requests made with the same aiohttp session.
+    Runs the SIS scraper for the specified range of years and seasons.
 
-    The term and subject search state on the SIS server must be reset before each attempt
-    to fetch classes from a term and subject.
+    Seasons can be any combination of "spring", "summer", and "fall". If not specified,
+    all three seasons will be processed by default.
+
+    Returns True on success or False on any unhandled failure.
     """
-    start_year = 2023
-    end_year = 2025
-    seasons = ["spring", "summer", "fall"]
+
+    # A JSESSIONID cookie is required before accessing any course data, which can be
+    # obtained on the first request to any SIS page. The cookie should automatically be
+    # included in subsequent requests made with the same aiohttp session.
+    #
+    # The term and subject search state on the SIS server must be reset before each attempt
+    # to fetch classes from a term and subject.
+
+    if seasons is None:
+        seasons = ["spring", "summer", "fall"]
 
     try:
-        # Limit concurrent client sessions
+        # Limit concurrent client sessions and simultaneous connections
         semaphore = asyncio.Semaphore(50)
+        limit_per_host = 20
 
         async with asyncio.TaskGroup() as tg:
             for year in range(start_year, end_year + 1):
@@ -394,7 +440,12 @@ async def main() -> bool:
                     term = get_term(year, season)
                     if term == "":
                         continue
-                    tg.create_task(get_term_data(term, semaphore))
+                    output_path = Path(OUTPUT_DATA_DIR) / f"{term}.json"
+                    tg.create_task(
+                        get_term_data(
+                            term, semaphore, limit_per_host, output_path=output_path
+                        )
+                    )
 
     except Exception as e:
         print(f"Error in main: {e}")
@@ -406,7 +457,9 @@ async def main() -> bool:
 
 
 if __name__ == "__main__":
+    start_year = 2023
+    end_year = 2025
     start_time = time.time()
-    asyncio.run(main())
+    asyncio.run(main(start_year, end_year))
     end_time = time.time()
     print(f"Total time elapsed: {end_time - start_time:.2f} seconds")
