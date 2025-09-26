@@ -3,6 +3,7 @@ import json
 import time
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 import aiohttp
 import bs4
@@ -65,7 +66,7 @@ async def class_search(
     max_size: int = 1000,
     sort_column: ClassColumn = ClassColumn.SUBJECT_DESCRIPTION,
     sort_asc: bool = True,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Fetches the list of classes for a given subject and term from SIS.
 
@@ -196,7 +197,9 @@ async def get_class_crosslists(session: aiohttp.ClientSession, term: str, crn: s
 
 
 async def process_class_details(
-    session: aiohttp.ClientSession, course_data: dict, class_entry: dict
+    session: aiohttp.ClientSession,
+    course_data: dict[str, Any],
+    class_entry: dict[str, Any],
 ) -> None:
     """
     Fetches and parses all details for a given class, populating the provided course
@@ -292,7 +295,7 @@ async def get_course_data(
     subject: str,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
     limit_per_host: int = 5,
-) -> dict:
+) -> dict[str, dict[str, Any]]:
     """
     Gets all course data for a given term and subject.
 
@@ -342,7 +345,7 @@ async def get_term_data(
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
     output_path: Path | str = None,
-) -> dict:
+) -> dict[str, dict[str, Any]]:
     """
     Gets all course data for a given term, which includes all subjects in the term.
 
