@@ -94,17 +94,6 @@ async def class_search(
     return course_data
 
 
-async def get_class_details(session: aiohttp.ClientSession, term: str, crn: str):
-    url = (
-        "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getClassDetails"
-    )
-    params = {"term": term, "courseReferenceNumber": crn}
-    async with session.get(url, params=params) as response:
-        response.raise_for_status()
-        text = await response.text()
-    soup = bs4.BeautifulSoup(text, "html5lib")
-
-
 async def get_class_description(
     session: aiohttp.ClientSession, term: str, crn: str
 ) -> dict[str, str]:
