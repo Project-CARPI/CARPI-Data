@@ -142,9 +142,26 @@ async def get_class_description(
 async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: str):
     """
     Fetches and parses data from the "Attributes" tab of a class details page.
+
+    Returned data format is as follows:
+    [
+        "Attribute 1",
+        "Attribute 2",
+        "Attribute 3",
+        ...
+    ]
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionAttributes"
     params = {"term": term, "courseReferenceNumber": crn}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    soup = bs4.BeautifulSoup(raw_data, "html5lib")
+    attributes = []
+    attribute_tags = soup.find_all("span", {"class": "attribute-text"})
+    for tag in attribute_tags:
+        attributes.append(tag.text.strip())
+    return attributes
 
 
 async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn: str):
@@ -199,12 +216,14 @@ async def process_class_details(
     # print(
     #     f"Processing class: {class_entry['subject']} {class_entry['courseNumber']} - {class_entry['sequenceNumber']}"
     # )
+
     # Fetch class details not included in main class details
+    # TODO: Only fetch necessary details if class data is already in course_data
     term = class_entry["term"]
     crn = class_entry["courseReferenceNumber"]
     async with asyncio.TaskGroup() as tg:
         description_task = tg.create_task(get_class_description(session, term, crn))
-        # attributes_task = tg.create_task(get_class_attributes(session, term, crn))
+        attributes_task = tg.create_task(get_class_attributes(session, term, crn))
         # restrictions_task = tg.create_task(get_class_restrictions(session, term, crn))
         # prerequisites_task = tg.create_task(get_class_prerequisites(session, term, crn))
         # corequisites_task = tg.create_task(get_class_corequisites(session, term, crn))
@@ -212,7 +231,7 @@ async def process_class_details(
 
     # Wait for tasks to complete and get results
     description_data = description_task.result()
-    # attributes_data = attributes_task.result()
+    attributes_data = attributes_task.result()
     # restrictions_data = restrictions_task.result()
     # prerequisites_data = prerequisites_task.result()
     # corequisites_data = corequisites_task.result()
@@ -228,7 +247,7 @@ async def process_class_details(
                 "corequisite": [],
                 "prerequisite": [],
                 "crosslist": [],
-                "attributes": [],
+                "attributes": attributes_data,
                 "restrictions": {
                     "major": [],
                     "not_major": [],
@@ -348,7 +367,7 @@ async def get_term_data(
     print(f"Fetching subject list for term: {term}")
     async with aiohttp.ClientSession() as session:
         subjects = await get_subjects(session, term)
-    print(f"Found {len(subjects)} subjects for term: {term}")
+    print(f"Processing {len(subjects)} subjects for term: {term}")
 
     # Stores all course data for the term
     all_course_data = {}
