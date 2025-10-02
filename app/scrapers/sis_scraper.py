@@ -203,9 +203,13 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
         "not_classification": [],
     }
     restrictions_tag = soup.find("section", {"aria-labelledby": "restrictions"})
+    # Other known restriction header patterns include:
+    # "Special Approvals:"
     restriction_header_pattern = (
         r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels):"
     )
+    # All children of the restrictions section are <div>, <span<>, or <br> tags
+    # Tags relevant to restrictions are only known to be <span> tags
     restrictions_content = [
         child
         for child in restrictions_tag.children
@@ -214,13 +218,13 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
     i = 0
     while i < len(restrictions_content):
         content = restrictions_content[i]
-        content_string = content.string.strip() if content.string else ""
         if content.string is None:
             print(
                 f"Skipping unexpected restriction content with no string for term and CRN: {term} - {crn}"
             )
             i += 1
             continue
+        content_string = content.string.strip()
         header_match = re.match(restriction_header_pattern, content_string)
         if header_match is None:
             i += 1
@@ -232,12 +236,17 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
         i += 1
         while i < len(restrictions_content):
             next_content = restrictions_content[i]
-            # if next_content.string is None:
-            #     i += 1
-            #     continue
-            if re.match(restriction_header_pattern, next_content.string.strip()):
+            if next_content.string is None:
+                print(
+                    f"Skipping unexpected restriction content with no string for term and CRN: {term} - {crn}"
+                )
+                i += 1
+                continue
+            next_content_string = next_content.string.strip()
+            # Stop if another restriction header is encountered
+            if re.match(restriction_header_pattern, next_content_string):
                 break
-            restriction_list.append(next_content.string.strip())
+            restriction_list.append(next_content_string)
             i += 1
     return restrictions_data
 
@@ -531,6 +540,7 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
 
 if __name__ == "__main__":
     start_year = 2023
+    start_year = 2025
     end_year = 2025
     start_time = time.time()
     asyncio.run(main(start_year, end_year))
