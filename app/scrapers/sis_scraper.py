@@ -462,7 +462,7 @@ async def get_term_data(
 
     print(f"Writing data to {output_path}")
     with output_path.open("w") as f:
-        json.dump(all_course_data, f, indent=4)
+        json.dump(all_course_data, f, indent=4, ensure_ascii=False)
 
 
 def get_term(year: int, season: str) -> str:
