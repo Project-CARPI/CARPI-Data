@@ -12,6 +12,13 @@ import bs4
 OUTPUT_DATA_DIR = "data"
 
 
+RESTRICTION_TYPE_MAP = {
+    "Majors": "major",
+    "Classes": "classification",
+    "Levels": "level",
+}
+
+
 class ClassColumn(str, Enum):
     COURSE_TITLE = "courseTitle"
     SUBJECT_DESCRIPTION = "subjectDescription"
@@ -195,14 +202,6 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
         "classification": [],
         "not_classification": [],
     }
-    restrictions_data_key_map = {
-        ("Must", "Majors"): "major",
-        ("Must", "Classes"): "classification",
-        ("Must", "Levels"): "level",
-        ("Cannot", "Majors"): "not_major",
-        ("Cannot", "Classes"): "not_classification",
-        ("Cannot", "Levels"): "not_level",
-    }
     restrictions_tag = soup.find("section", {"aria-labelledby": "restrictions"})
     restriction_header_pattern = (
         r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels):"
@@ -226,9 +225,10 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
         if header_match is None:
             i += 1
             continue
-        restriction_list = restrictions_data[
-            restrictions_data_key_map[(header_match.group(1), header_match.group(2))]
-        ]
+        must_or_cannot, type_plural = header_match.groups()
+        key_base = RESTRICTION_TYPE_MAP[type_plural]
+        key = f"not_{key_base}" if must_or_cannot == "Cannot" else key_base
+        restriction_list = restrictions_data[key]
         i += 1
         while i < len(restrictions_content):
             next_content = restrictions_content[i]
