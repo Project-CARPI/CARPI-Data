@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import time
 from enum import Enum
 from pathlib import Path
@@ -167,11 +168,78 @@ async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: s
 async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn: str):
     """
     Fetches and parses data from the "Restrictions" tab of a class details page.
+
+    Returned data format is as follows:
+    {
+        "major": ["Allowed Major 1", ...],
+        "not_major": ["Disallowed Major 1", ...],
+        "level": ["Allowed Level 1", ...],
+        "not_level": ["Disallowed Level 1", ...],
+        "classification": ["Allowed Classification 1", ...],
+        "not_classification": ["Disallowed Classification 1", ...]
+    }
     """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getRestrictions"
     )
     params = {"term": term, "courseReferenceNumber": crn}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    soup = bs4.BeautifulSoup(raw_data, "html5lib")
+    restrictions_data = {
+        "major": [],
+        "not_major": [],
+        "level": [],
+        "not_level": [],
+        "classification": [],
+        "not_classification": [],
+    }
+    restrictions_data_key_map = {
+        ("Must", "Majors"): "major",
+        ("Must", "Classes"): "classification",
+        ("Must", "Levels"): "level",
+        ("Cannot", "Majors"): "not_major",
+        ("Cannot", "Classes"): "not_classification",
+        ("Cannot", "Levels"): "not_level",
+    }
+    restrictions_tag = soup.find("section", {"aria-labelledby": "restrictions"})
+    restriction_header_pattern = (
+        r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels):"
+    )
+    restrictions_content = [
+        child
+        for child in restrictions_tag.children
+        if isinstance(child, bs4.element.Tag) and child.name == "span"
+    ]
+    i = 0
+    while i < len(restrictions_content):
+        content = restrictions_content[i]
+        content_string = content.string.strip() if content.string else ""
+        if content.string is None:
+            print(
+                f"Skipping unexpected restriction content with no string for term and CRN: {term} - {crn}"
+            )
+            i += 1
+            continue
+        header_match = re.match(restriction_header_pattern, content_string)
+        if header_match is None:
+            i += 1
+            continue
+        restriction_list = restrictions_data[
+            restrictions_data_key_map[(header_match.group(1), header_match.group(2))]
+        ]
+        i += 1
+        while i < len(restrictions_content):
+            next_content = restrictions_content[i]
+            # if next_content.string is None:
+            #     i += 1
+            #     continue
+            if re.match(restriction_header_pattern, next_content.string.strip()):
+                break
+            restriction_list.append(next_content.string.strip())
+            i += 1
+    return restrictions_data
 
 
 async def get_class_prerequisites(session: aiohttp.ClientSession, term: str, crn: str):
@@ -224,7 +292,7 @@ async def process_class_details(
     async with asyncio.TaskGroup() as tg:
         description_task = tg.create_task(get_class_description(session, term, crn))
         attributes_task = tg.create_task(get_class_attributes(session, term, crn))
-        # restrictions_task = tg.create_task(get_class_restrictions(session, term, crn))
+        restrictions_task = tg.create_task(get_class_restrictions(session, term, crn))
         # prerequisites_task = tg.create_task(get_class_prerequisites(session, term, crn))
         # corequisites_task = tg.create_task(get_class_corequisites(session, term, crn))
         # crosslists_task = tg.create_task(get_class_crosslists(session, term, crn))
@@ -232,7 +300,7 @@ async def process_class_details(
     # Wait for tasks to complete and get results
     description_data = description_task.result()
     attributes_data = attributes_task.result()
-    # restrictions_data = restrictions_task.result()
+    restrictions_data = restrictions_task.result()
     # prerequisites_data = prerequisites_task.result()
     # corequisites_data = corequisites_task.result()
     # crosslists_data = crosslists_task.result()
@@ -248,14 +316,7 @@ async def process_class_details(
                 "prerequisite": [],
                 "crosslist": [],
                 "attributes": attributes_data,
-                "restrictions": {
-                    "major": [],
-                    "not_major": [],
-                    "level": [],
-                    "not_level": [],
-                    "classification": [],
-                    "not_classification": [],
-                },
+                "restrictions": restrictions_data,
                 "credits": {
                     "min": float("inf"),
                     "max": 0,
