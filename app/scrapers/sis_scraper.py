@@ -470,42 +470,44 @@ async def process_class_details(
 
     Takes as input class data fetched from SIS's class search endpoint.
     """
-    # print(
-    #     f"Processing class: {class_entry['subject']} {class_entry['courseNumber']} - {class_entry['sequenceNumber']}"
-    # )
-
-    # Fetch class details not included in main class details
-    # TODO: Only fetch necessary details if class data is already in course_data
-    term = class_entry["term"]
-    crn = class_entry["courseReferenceNumber"]
-    async with asyncio.TaskGroup() as tg:
-        description_task = tg.create_task(get_class_description(session, term, crn))
-        attributes_task = tg.create_task(get_class_attributes(session, term, crn))
-        restrictions_task = tg.create_task(get_class_restrictions(session, term, crn))
-        # prerequisites_task = tg.create_task(get_class_prerequisites(session, term, crn))
-        corequisites_task = tg.create_task(
-            get_class_corequisites(session, term, crn, subject_name_code_map)
-        )
-        # crosslists_task = tg.create_task(get_class_crosslists(session, term, crn))
-
-    # Wait for tasks to complete and get results
-    description_data = description_task.result()
-    attributes_data = attributes_task.result()
-    restrictions_data = restrictions_task.result()
-    # prerequisites_data = prerequisites_task.result()
-    corequisites_data = corequisites_task.result()
-    # crosslists_data = crosslists_task.result()
-
     # Example course code: CSCI 1100
     course_code = f"{class_entry['subject']} {class_entry['courseNumber']}"
+
+    # Fetch class details not included in main class details
+    # Only fetch if course not already in course data
     if course_code not in course_data:
+        term = class_entry["term"]
+        crn = class_entry["courseReferenceNumber"]
+        async with asyncio.TaskGroup() as tg:
+            description_task = tg.create_task(get_class_description(session, term, crn))
+            attributes_task = tg.create_task(get_class_attributes(session, term, crn))
+            restrictions_task = tg.create_task(
+                get_class_restrictions(session, term, crn)
+            )
+            # prerequisites_task = tg.create_task(get_class_prerequisites(session, term, crn))
+            corequisites_task = tg.create_task(
+                get_class_corequisites(session, term, crn, subject_name_code_map)
+            )
+            crosslists_task = tg.create_task(
+                get_class_crosslists(session, term, crn, subject_name_code_map)
+            )
+
+        # Wait for tasks to complete and get results
+        description_data = description_task.result()
+        attributes_data = attributes_task.result()
+        restrictions_data = restrictions_task.result()
+        # prerequisites_data = prerequisites_task.result()
+        corequisites_data = corequisites_task.result()
+        crosslists_data = crosslists_task.result()
+
+        # Example course code: CSCI 1100
         course_data[course_code] = {
             "course_name": class_entry["courseTitle"],
             "course_detail": {
                 "description": description_data["description"],
                 "corequisite": corequisites_data,
                 "prerequisite": [],
-                "crosslist": [],
+                "crosslist": crosslists_data,
                 "attributes": attributes_data,
                 "restrictions": restrictions_data,
                 "credits": {
