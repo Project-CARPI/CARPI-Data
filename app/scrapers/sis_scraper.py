@@ -469,6 +469,10 @@ async def process_class_details(
     data dictionary or adding to existing entries as appropriate.
 
     Takes as input class data fetched from SIS's class search endpoint.
+
+    Accepts an optional subject name to subject code mapping. If provided, subject
+    names will be attempted to be converted to subject codes in the returned data,
+    e.g. "Biology" -> "BIOL".
     """
     # Example course code: CSCI 1100
     course_code = f"{class_entry['subject']} {class_entry['courseNumber']}"
@@ -562,6 +566,10 @@ async def get_course_data(
     """
     Gets all course data for a given term and subject.
 
+    Accepts an optional subject name to subject code mapping. If provided, subject
+    names will be attempted to be converted to subject codes in the returned data,
+    e.g. "Biology" -> "BIOL".
+
     This function spawns its own client session to avoid session state conflicts with
     other subjects that may be processing concurrently. Optionally accepts a semaphore
     to limit the number of concurrent sessions between multiple calls to this function,
@@ -618,6 +626,10 @@ async def get_term_course_data(
     A semaphore is used to limit the number of concurrent sessions, and an additional
     limit is placed on the number of simultaneous connections a session can make to the
     SIS server.
+
+    Accepts an optional subject name to subject code mapping. If provided, subject
+    names will be attempted to be converted to subject codes in the returned data,
+    e.g. "Biology" -> "BIOL".
 
     Writes data as JSON after all subjects in the term have been processed.
     """
