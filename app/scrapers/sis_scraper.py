@@ -268,6 +268,10 @@ async def get_class_corequisites(
     """
     Fetches and parses data from the "Corequisites" tab of a class details page.
 
+    Accepts an optional subject name to subject code mapping. If provided, subject
+    names will be attempted to be converted to subject codes in the returned data,
+    e.g. "Biology" -> "BIOL".
+
     Returned data format is as follows:
     [
         "CSCI 1100",
@@ -317,14 +321,64 @@ async def get_class_corequisites(
     return coreqs
 
 
-async def get_class_crosslists(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_crosslists(
+    session: aiohttp.ClientSession,
+    term: str,
+    crn: str,
+    subject_name_code_map: dict[str, str] = None,
+):
     """
     Fetches and parses data from the "Cross Listed" tab of a class details page.
+
+    Accepts an optional subject name to subject code mapping. If provided, subject
+    names will be attempted to be converted to subject codes in the returned data,
+    e.g. "Biology" -> "BIOL".
+
+    Returned data format is as follows:
+    [
+        "CSCI 1100",
+        "MATH 1010",
+        ...
+    ]
     """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getXlstSections"
     )
     params = {"term": term, "courseReferenceNumber": crn}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    soup = bs4.BeautifulSoup(raw_data, "html5lib")
+    crosslists_tag = soup.find("section", {"aria-labelledby": "xlstSections"})
+    crosslists_table = crosslists_tag.table
+    if crosslists_table is None:
+        return []
+    crosslists_thead = crosslists_table.thead
+    crosslists_tbody = crosslists_table.tbody
+    if not crosslists_thead or not crosslists_tbody:
+        return []
+    thead_cols = [th.text.strip() for th in crosslists_thead.find_all("th")]
+    # Known crosslist columns are CRN, Subject, Course Number, Title, and Section
+    if len(thead_cols) != 5:
+        print(
+            f"Unexpected number of crosslist columns for term and CRN: {term} - {crn}"
+        )
+        return []
+    crosslists = []
+    for tr in crosslists_tbody.find_all("tr"):
+        cols = [td.text.strip() for td in tr.find_all("td")]
+        if len(cols) != len(thead_cols):
+            print(
+                f"Skipping unexpected crosslist row with mismatched columns for term and CRN: {term} - {crn}"
+            )
+            continue
+        subject = cols[1]
+        code = cols[2]
+        # Convert subject name to code if mapping is provided
+        if subject_name_code_map and subject in subject_name_code_map:
+            subject = subject_name_code_map[subject]
+        crosslists.append(f"{subject} {code}")
+    return crosslists
 
 
 async def process_class_details(
