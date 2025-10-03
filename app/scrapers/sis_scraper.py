@@ -28,7 +28,7 @@ class ClassColumn(str, Enum):
     TERM = "term"
 
 
-async def get_subjects(
+async def get_term_subjects(
     session: aiohttp.ClientSession, term: str
 ) -> list[dict[str, str]]:
     """
@@ -526,7 +526,7 @@ async def get_course_data(
                 return {}
 
 
-async def get_term_data(
+async def get_term_course_data(
     term: str,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
@@ -544,7 +544,7 @@ async def get_term_data(
     """
     print(f"Fetching subject list for term: {term}")
     async with aiohttp.ClientSession() as session:
-        subjects = await get_subjects(session, term)
+        subjects = await get_term_subjects(session, term)
     print(f"Processing {len(subjects)} subjects for term: {term}")
 
     # Create reverse mapping of subject names to codes
@@ -589,7 +589,7 @@ async def get_term_data(
         json.dump(all_course_data, f, indent=4, ensure_ascii=False)
 
 
-def get_term(year: int, season: str) -> str:
+def get_term_code(year: int, season: str) -> str:
     """
     Converts a year and academic season into a term code used by SIS.
     """
@@ -634,12 +634,12 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
         async with asyncio.TaskGroup() as tg:
             for year in range(start_year, end_year + 1):
                 for season in seasons:
-                    term = get_term(year, season)
+                    term = get_term_code(year, season)
                     if term == "":
                         continue
                     output_path = Path(OUTPUT_DATA_DIR) / f"{term}.json"
                     tg.create_task(
-                        get_term_data(
+                        get_term_course_data(
                             term, semaphore, limit_per_host, output_path=output_path
                         )
                     )
