@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import time
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,32 @@ class ClassColumn(str, Enum):
     SECTION = "sequenceNumber"
     CRN = "courseReferenceNumber"
     TERM = "term"
+
+
+async def get_reverse_subject_map(
+    session: aiohttp.ClientSession,
+    start_year: int = 1998,
+    end_year: int = datetime.now().year,
+    seasons: list[str] = None,
+) -> dict[str, str]:
+    """
+    Fetches the list of subjects from the specific range of years and seasons, and
+    returns a mapping of subject names to subject codes.
+
+    Defaults to a range from 1998 to the current year, and Spring, Summer, and Fall
+    seasons. SIS data begins in Summer 1998.
+    """
+    subject_name_code_map = {}
+    if seasons is None:
+        seasons = ["spring", "summer", "fall"]
+    async with aiohttp.ClientSession() as session:
+        for year in range(start_year, end_year + 1):
+            for season in seasons:
+                term = get_term_code(year, season)
+                subjects = await get_term_subjects(session, term)
+                for subject in subjects:
+                    subject_name_code_map[subject["description"]] = subject["code"]
+    return subject_name_code_map
 
 
 async def get_term_subjects(
