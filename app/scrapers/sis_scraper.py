@@ -1,4 +1,5 @@
 import asyncio
+import html
 import json
 import re
 import time
@@ -37,7 +38,7 @@ async def get_reverse_subject_map(
 ) -> dict[str, str]:
     """
     Fetches the list of subjects from the specified range of years and seasons, and
-    returns a mapping of subject names to subject codes.
+    returns a "reverse" mapping of subject names to subject codes.
 
     Defaults to a range from 1998 to the current year, and Spring, Summer, and Fall
     seasons. SIS data begins in Summer 1998.
@@ -58,7 +59,7 @@ async def get_term_subjects(
     session: aiohttp.ClientSession, term: str
 ) -> list[dict[str, str]]:
     """
-    Fetches the list of subjects for a given term from SIS.
+    Fetches the list of subjects and codes for a given term from SIS.
 
     Returned data format is as follows:
     [
@@ -74,7 +75,7 @@ async def get_term_subjects(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = raw_data.replace("&amp;", "&")
+    raw_data = html.unescape(raw_data)
     data = json.loads(raw_data)
     return data
 
@@ -83,7 +84,7 @@ async def get_term_attributes(
     session: aiohttp.ClientSession, term: str
 ) -> list[dict[str, str]]:
     """
-    Fetches the list of attributes for a given term from SIS.
+    Fetches the list of attributes and codes for a given term from SIS.
 
     Returned data format is as follows:
     [
@@ -99,6 +100,7 @@ async def get_term_attributes(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
+    raw_data = html.unescape(raw_data)
     data = json.loads(raw_data)
     return data
 
@@ -107,7 +109,7 @@ async def get_term_colleges(
     session: aiohttp.ClientSession, term: str
 ) -> list[dict[str, str]]:
     """
-    Fetches the list of colleges (schools) for a given term from SIS.
+    Fetches the list of colleges (schools) and codes for a given term from SIS.
 
     Returned data format is as follows:
     [
@@ -123,6 +125,7 @@ async def get_term_colleges(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
+    raw_data = html.unescape(raw_data)
     data = json.loads(raw_data)
     return data
 
