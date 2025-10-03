@@ -53,6 +53,54 @@ async def get_term_subjects(
     return data
 
 
+async def get_term_attributes(
+    session: aiohttp.ClientSession, term: str
+) -> list[dict[str, str]]:
+    """
+    Fetches the list of attributes for a given term from SIS.
+
+    Returned data format is as follows:
+    [
+        {
+            "code": "COMM",
+            "description": "Communication Intensive"
+        },
+        ...
+    ]
+    """
+    url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_attribute"
+    params = {"term": term, "offset": 1, "max": 100}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    data = json.loads(raw_data)
+    return data
+
+
+async def get_term_colleges(
+    session: aiohttp.ClientSession, term: str
+) -> list[dict[str, str]]:
+    """
+    Fetches the list of colleges (schools) for a given term from SIS.
+
+    Returned data format is as follows:
+    [
+        {
+            "code": "S",
+            "description": "School of Science"
+        },
+        ...
+    ]
+    """
+    url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_college"
+    params = {"term": term, "offset": 1, "max": 100}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    data = json.loads(raw_data)
+    return data
+
+
 async def reset_class_search(session: aiohttp.ClientSession, term: str) -> None:
     """
     Resets the term and subject search state on the SIS server.
