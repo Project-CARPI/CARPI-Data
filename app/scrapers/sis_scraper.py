@@ -559,7 +559,7 @@ async def process_class_details(
 async def get_course_data(
     term: str,
     subject: str,
-    subject_name_code_map: dict[str, str],
+    subject_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
     limit_per_host: int = 5,
 ) -> dict[str, dict[str, Any]]:
@@ -595,7 +595,6 @@ async def get_course_data(
             try:
                 # Reset search state on server before fetching class data
                 await reset_class_search(session, term)
-                # print(f"Processing subject: {subject}")
                 class_data = await class_search(session, term, subject)
                 course_data = {}
                 async with asyncio.TaskGroup() as tg:
@@ -605,7 +604,6 @@ async def get_course_data(
                                 session, course_data, class_entry, subject_name_code_map
                             )
                         )
-                # print(f"Completed processing subject: {subject}")
                 # Return data sorted by course code
                 return dict(sorted(course_data.items()))
             except aiohttp.ClientError as e:
@@ -615,9 +613,10 @@ async def get_course_data(
 
 async def get_term_course_data(
     term: str,
+    output_path: Path | str = None,
+    subject_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
-    output_path: Path | str = None,
 ) -> dict[str, dict[str, Any]]:
     """
     Gets all course data for a given term, which includes all subjects in the term.
@@ -637,11 +636,6 @@ async def get_term_course_data(
     async with aiohttp.ClientSession() as session:
         subjects = await get_term_subjects(session, term)
     print(f"Processing {len(subjects)} subjects for term: {term}")
-
-    # Create reverse mapping of subject names to codes
-    subject_name_code_map = {}
-    for subject in subjects:
-        subject_name_code_map[subject["description"]] = subject["code"]
 
     # Stores all course data for the term
     all_course_data = {}
@@ -722,6 +716,17 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
         semaphore = asyncio.Semaphore(50)
         limit_per_host = 20
 
+        # Create master subject name to subject code mapping
+        print("Fetching subject name to subject code mapping...")
+        async with aiohttp.ClientSession() as session:
+            subject_name_code_map = await get_reverse_subject_map(
+                session, start_year, end_year, seasons
+            )
+        print(
+            f"Fetched {len(subject_name_code_map)} subject mappings between years: {start_year} - {end_year}"
+        )
+
+        # Process terms in parallel
         async with asyncio.TaskGroup() as tg:
             for year in range(start_year, end_year + 1):
                 for season in seasons:
@@ -731,7 +736,11 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
                     output_path = Path(OUTPUT_DATA_DIR) / f"{term}.json"
                     tg.create_task(
                         get_term_course_data(
-                            term, semaphore, limit_per_host, output_path=output_path
+                            term,
+                            output_path,
+                            subject_name_code_map,
+                            semaphore,
+                            limit_per_host,
                         )
                     )
 
