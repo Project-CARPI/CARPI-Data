@@ -42,6 +42,13 @@ async def get_reverse_subject_map(
 
     Defaults to a range from 1998 to the current year, and Spring, Summer, and Fall
     seasons. SIS data begins in Summer 1998.
+
+    Returned data format is as follows:
+    {
+        "Biology": "BIOL",
+        "Computer Science": "CSCI",
+        ...
+    }
     """
     subject_name_code_map = {}
     if seasons is None:
@@ -59,7 +66,8 @@ async def get_term_subjects(
     session: aiohttp.ClientSession, term: str
 ) -> list[dict[str, str]]:
     """
-    Fetches the list of subjects and codes for a given term from SIS.
+    Fetches the list of subjects and codes for a given term from SIS. If the term is
+    invalid or doesn't exist, returns an empty list.
 
     Returned data format is as follows:
     [
@@ -351,8 +359,8 @@ async def get_class_corequisites(
 
     Returned data format is as follows:
     [
-        "CSCI 1100",
-        "MATH 1010",
+        "Computer Science 1100",
+        "Mathematics 1010",
         ...
     ]
     """
@@ -413,8 +421,8 @@ async def get_class_crosslists(
 
     Returned data format is as follows:
     [
-        "CSCI 1100",
-        "MATH 1010",
+        "Computer Science 1100",
+        "Mathematics 1010",
         ...
     ]
     """
