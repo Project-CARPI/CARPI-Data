@@ -728,7 +728,6 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
 
 
 if __name__ == "__main__":
-    start_year = 2023
     start_year = 2025
     end_year = 2025
     start_time = time.time()
