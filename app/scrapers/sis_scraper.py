@@ -208,7 +208,7 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
     restriction_header_pattern = (
         r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels):"
     )
-    # All children of the restrictions section are <div>, <span<>, or <br> tags
+    # All known children of the restrictions section are <div>, <span<>, or <br> tags
     # Tags relevant to restrictions are only known to be <span> tags
     restrictions_content = [
         child
@@ -259,14 +259,62 @@ async def get_class_prerequisites(session: aiohttp.ClientSession, term: str, crn
     params = {"term": term, "courseReferenceNumber": crn}
 
 
-async def get_class_corequisites(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_corequisites(
+    session: aiohttp.ClientSession,
+    term: str,
+    crn: str,
+    subject_name_code_map: dict[str, str] = None,
+):
     """
     Fetches and parses data from the "Corequisites" tab of a class details page.
+
+    Returned data format is as follows:
+    [
+        "CSCI 1100",
+        "MATH 1010",
+        ...
+    ]
     """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCorequisites"
     )
     params = {"term": term, "courseReferenceNumber": crn}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    soup = bs4.BeautifulSoup(raw_data, "html5lib")
+    coreqs_tag = soup.find("section", {"aria-labelledby": "coReqs"})
+    coreqs_table = coreqs_tag.find("table", {"class": "basePreqTable"})
+    if coreqs_table is None:
+        return []
+    coreqs_thead = coreqs_table.thead
+    coreqs_tbody = coreqs_table.tbody
+    if not coreqs_thead or not coreqs_tbody:
+        return []
+    thead_cols = [th.text.strip() for th in coreqs_thead.find_all("th")]
+    # Known corequisite columns are Subject, Course, and Title
+    if len(thead_cols) != 3:
+        print(
+            f"Unexpected number of corequisite columns for term and CRN: {term} - {crn}"
+        )
+        return []
+    # Corequisite list should be a list of course codes
+    # e.g. "CSCI 1100", "MATH 1010"
+    coreqs = []
+    for tr in coreqs_tbody.find_all("tr"):
+        cols = [td.text.strip() for td in tr.find_all("td")]
+        if len(cols) != len(thead_cols):
+            print(
+                f"Skipping unexpected corequisite row with mismatched columns for term and CRN: {term} - {crn}"
+            )
+            continue
+        subject = cols[0]
+        # Convert subject name to code if mapping is provided
+        if subject_name_code_map and subject in subject_name_code_map:
+            subject = subject_name_code_map[subject]
+        course_num = cols[1]
+        coreqs.append(f"{subject} {course_num}")
+    return coreqs
 
 
 async def get_class_crosslists(session: aiohttp.ClientSession, term: str, crn: str):
@@ -283,6 +331,7 @@ async def process_class_details(
     session: aiohttp.ClientSession,
     course_data: dict[str, Any],
     class_entry: dict[str, Any],
+    subject_name_code_map: dict[str, str] = None,
 ) -> None:
     """
     Fetches and parses all details for a given class, populating the provided course
@@ -303,7 +352,9 @@ async def process_class_details(
         attributes_task = tg.create_task(get_class_attributes(session, term, crn))
         restrictions_task = tg.create_task(get_class_restrictions(session, term, crn))
         # prerequisites_task = tg.create_task(get_class_prerequisites(session, term, crn))
-        # corequisites_task = tg.create_task(get_class_corequisites(session, term, crn))
+        corequisites_task = tg.create_task(
+            get_class_corequisites(session, term, crn, subject_name_code_map)
+        )
         # crosslists_task = tg.create_task(get_class_crosslists(session, term, crn))
 
     # Wait for tasks to complete and get results
@@ -311,7 +362,7 @@ async def process_class_details(
     attributes_data = attributes_task.result()
     restrictions_data = restrictions_task.result()
     # prerequisites_data = prerequisites_task.result()
-    # corequisites_data = corequisites_task.result()
+    corequisites_data = corequisites_task.result()
     # crosslists_data = crosslists_task.result()
 
     # Example course code: CSCI 1100
@@ -321,7 +372,7 @@ async def process_class_details(
             "course_name": class_entry["courseTitle"],
             "course_detail": {
                 "description": description_data["description"],
-                "corequisite": [],
+                "corequisite": corequisites_data,
                 "prerequisite": [],
                 "crosslist": [],
                 "attributes": attributes_data,
@@ -371,6 +422,7 @@ async def process_class_details(
 async def get_course_data(
     term: str,
     subject: str,
+    subject_name_code_map: dict[str, str],
     semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
     limit_per_host: int = 5,
 ) -> dict[str, dict[str, Any]]:
@@ -408,7 +460,9 @@ async def get_course_data(
                 async with asyncio.TaskGroup() as tg:
                     for class_entry in class_data:
                         tg.create_task(
-                            process_class_details(session, course_data, class_entry)
+                            process_class_details(
+                                session, course_data, class_entry, subject_name_code_map
+                            )
                         )
                 # print(f"Completed processing subject: {subject}")
                 # Return data sorted by course code
@@ -439,6 +493,11 @@ async def get_term_data(
         subjects = await get_subjects(session, term)
     print(f"Processing {len(subjects)} subjects for term: {term}")
 
+    # Create reverse mapping of subject names to codes
+    subject_name_code_map = {}
+    for subject in subjects:
+        subject_name_code_map[subject["description"]] = subject["code"]
+
     # Stores all course data for the term
     all_course_data = {}
 
@@ -452,7 +511,9 @@ async def get_term_data(
                 "courses": {},
             }
             task = tg.create_task(
-                get_course_data(term, subject_code, semaphore, limit_per_host)
+                get_course_data(
+                    term, subject_code, subject_name_code_map, semaphore, limit_per_host
+                )
             )
             tasks.append(task)
 
