@@ -36,7 +36,7 @@ async def get_reverse_subject_map(
     seasons: list[str] = None,
 ) -> dict[str, str]:
     """
-    Fetches the list of subjects from the specific range of years and seasons, and
+    Fetches the list of subjects from the specified range of years and seasons, and
     returns a mapping of subject names to subject codes.
 
     Defaults to a range from 1998 to the current year, and Spring, Summer, and Fall
@@ -45,13 +45,12 @@ async def get_reverse_subject_map(
     subject_name_code_map = {}
     if seasons is None:
         seasons = ["spring", "summer", "fall"]
-    async with aiohttp.ClientSession() as session:
-        for year in range(start_year, end_year + 1):
-            for season in seasons:
-                term = get_term_code(year, season)
-                subjects = await get_term_subjects(session, term)
-                for subject in subjects:
-                    subject_name_code_map[subject["description"]] = subject["code"]
+    for year in range(start_year, end_year + 1):
+        for season in seasons:
+            term = get_term_code(year, season)
+            subjects = await get_term_subjects(session, term)
+            for subject in subjects:
+                subject_name_code_map[subject["description"]] = subject["code"]
     return subject_name_code_map
 
 
