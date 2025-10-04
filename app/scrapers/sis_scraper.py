@@ -532,7 +532,7 @@ async def process_class_details(
                 get_class_restrictions(session, term, crn)
             )
             prerequisites_task = tg.create_task(
-                get_class_prerequisites(session, term, crn)
+                get_class_prerequisites(session, term, crn, subject_name_code_map)
             )
             corequisites_task = tg.create_task(
                 get_class_corequisites(session, term, crn, subject_name_code_map)
@@ -682,11 +682,6 @@ async def get_term_course_data(
         subjects = await get_term_subjects(session, term)
     print(f"Processing {len(subjects)} subjects for term: {term}")
 
-    # Create reverse mapping of subject names to codes
-    subject_name_code_map = {}
-    for subject in subjects:
-        subject_name_code_map[subject["description"]] = subject["code"]
-
     # Stores all course data for the term
     all_course_data = {}
 
@@ -770,11 +765,8 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
         print("Fetching subject name to subject code mapping...")
         async with aiohttp.ClientSession() as session:
             subject_name_code_map = await get_reverse_subject_map(
-                session, start_year, end_year, seasons
+                session, seasons=seasons
             )
-        print(
-            f"Fetched {len(subject_name_code_map)} subject mappings between years: {start_year} - {end_year}"
-        )
 
         # Process terms in parallel
         async with asyncio.TaskGroup() as tg:
@@ -804,7 +796,6 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
 
 
 if __name__ == "__main__":
-    start_year = 2023
     start_year = 2025
     end_year = 2025
     start_time = time.time()
