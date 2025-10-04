@@ -10,6 +10,7 @@ from typing import Any
 
 import aiohttp
 import bs4
+from prereq_parser import parse_prereq
 
 OUTPUT_DATA_DIR = "data"
 
@@ -332,12 +333,50 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
     return restrictions_data
 
 
-async def get_class_prerequisites(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_prerequisites(
+    session: aiohttp.ClientSession,
+    term: str,
+    crn: str,
+    subject_name_code_map: dict[str, str],
+) -> dict[str, Any]:
     """
     Fetches and parses data from the "Prerequisites" tab of a class details page.
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites"
     params = {"term": term, "courseReferenceNumber": crn}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        text = await response.text()
+    soup = bs4.BeautifulSoup(text, "html5lib")
+    data = ""
+    rows = soup.find_all("tr")
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) == 0:
+            continue
+        data += (
+            " and " if cols[0].text == "And" else " or " if cols[0].text == "Or" else ""
+        )
+        data += " ( " if cols[1].text != "" else ""
+        if cols[2].text != "":
+            data += f" {cols[2].text} {cols[3].text} "
+        else:
+            if cols[4].text not in subject_name_code_map:
+                print(f"Unknown department in CRN {crn}: {cols[4].text}")
+                data += f" {cols[4].text} {cols[5].text} "
+            else:
+                data += f" {subject_name_code_map[cols[4].text]} {cols[5].text} "
+        data += " ) " if cols[8].text != "" else ""
+        data = data.replace("  ", " ").strip()
+        data = data.replace("  ", " ").strip()
+        data = data.replace("( ", "(").strip()
+        data = data.replace(" )", ")").strip()
+    if data:
+        try:
+            return parse_prereq(crn, data)
+        except Exception as e:
+            print(f"Error parsing prerequisites for CRN {crn} with data: {data} - {e}")
+    return {}
 
 
 async def get_class_corequisites(
@@ -492,7 +531,9 @@ async def process_class_details(
             restrictions_task = tg.create_task(
                 get_class_restrictions(session, term, crn)
             )
-            # prerequisites_task = tg.create_task(get_class_prerequisites(session, term, crn))
+            prerequisites_task = tg.create_task(
+                get_class_prerequisites(session, term, crn)
+            )
             corequisites_task = tg.create_task(
                 get_class_corequisites(session, term, crn, subject_name_code_map)
             )
@@ -504,7 +545,7 @@ async def process_class_details(
         description_data = description_task.result()
         attributes_data = attributes_task.result()
         restrictions_data = restrictions_task.result()
-        # prerequisites_data = prerequisites_task.result()
+        prerequisites_data = prerequisites_task.result()
         corequisites_data = corequisites_task.result()
         crosslists_data = crosslists_task.result()
 
@@ -514,7 +555,7 @@ async def process_class_details(
             "course_detail": {
                 "description": description_data["description"],
                 "corequisite": corequisites_data,
-                "prerequisite": [],
+                "prerequisite": prerequisites_data,
                 "crosslist": crosslists_data,
                 "attributes": attributes_data,
                 "restrictions": restrictions_data,
@@ -641,6 +682,11 @@ async def get_term_course_data(
         subjects = await get_term_subjects(session, term)
     print(f"Processing {len(subjects)} subjects for term: {term}")
 
+    # Create reverse mapping of subject names to codes
+    subject_name_code_map = {}
+    for subject in subjects:
+        subject_name_code_map[subject["description"]] = subject["code"]
+
     # Stores all course data for the term
     all_course_data = {}
 
@@ -758,6 +804,7 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
 
 
 if __name__ == "__main__":
+    start_year = 2023
     start_year = 2025
     end_year = 2025
     start_time = time.time()
