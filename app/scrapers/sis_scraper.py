@@ -295,6 +295,8 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
     # The term and subject search state on the SIS server must be reset before each attempt
     # to fetch classes from a term and subject.
 
+    start_time = time.time()
+
     if seasons is None:
         seasons = ["spring", "summer", "fall"]
 
@@ -334,13 +336,14 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
 
         traceback.print_exc()
         return False
+
+    end_time = time.time()
+    print(f"Total time elapsed: {end_time - start_time:.2f} seconds")
+
     return True
 
 
 if __name__ == "__main__":
     start_year = 2025
     end_year = 2025
-    start_time = time.time()
     asyncio.run(main(start_year, end_year))
-    end_time = time.time()
-    print(f"Total time elapsed: {end_time - start_time:.2f} seconds")
