@@ -41,7 +41,7 @@ async def get_term_subjects(
     ]
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_subject"
-    params = {"term": term, "offset": 1, "max": 100}
+    params = {"term": term, "offset": 1, "max": 2147483647}
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
@@ -64,7 +64,7 @@ async def get_all_attributes(session: aiohttp.ClientSession) -> list[dict[str, s
     ]
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_attribute"
-    params = {"offset": 1, "max": 100}
+    params = {"offset": 1, "max": 2147483647}
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
@@ -87,7 +87,7 @@ async def get_all_colleges(session: aiohttp.ClientSession) -> list[dict[str, str
     ]
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_college"
-    params = {"offset": 1, "max": 100}
+    params = {"offset": 1, "max": 2147483647}
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
