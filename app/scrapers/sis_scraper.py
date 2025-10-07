@@ -8,7 +8,7 @@ from typing import Any
 import aiohttp
 from sis_api import *
 
-OUTPUT_DATA_DIR = "data"
+OUTPUT_DATA_DIR = "scraper_data"
 
 
 async def get_reverse_subject_map(
@@ -170,7 +170,6 @@ async def get_course_data(
     manipulates and aggregates this data such that the returned structure is keyed by
     courses instead, with classes as a sub-field of each course.
     """
-
     async with semaphore:
         # Limit simultaneous connections to SIS server per session
         connector = aiohttp.TCPConnector(limit_per_host=limit_per_host)
