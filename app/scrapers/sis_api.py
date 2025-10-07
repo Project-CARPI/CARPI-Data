@@ -50,6 +50,32 @@ async def get_term_subjects(
     return data
 
 
+async def get_term_instructors(
+    session: aiohttp.ClientSession, term: str
+) -> list[dict[str, str]]:
+    """
+    Fetches the list of instructors for a given term from SIS. If the term is invalid
+    or doesn't exist, returns an empty list.
+
+    Returned data format is as follows:
+    [
+        {
+            "code": "71297",
+            "description": "Abbott, Claude"
+        },
+        ...
+    ]
+    """
+    url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_instructor"
+    params = {"term": term, "offset": 1, "max": 2147483647}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    raw_data = html.unescape(raw_data)
+    data = json.loads(raw_data)
+    return data
+
+
 async def get_all_attributes(session: aiohttp.ClientSession) -> list[dict[str, str]]:
     """
     Fetches the master list of attributes from SIS.
