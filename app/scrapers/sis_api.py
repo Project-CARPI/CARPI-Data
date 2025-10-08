@@ -94,7 +94,9 @@ async def get_term_instructors(
     return data
 
 
-async def get_all_attributes(session: aiohttp.ClientSession) -> list[dict[str, str]]:
+async def get_all_attributes(
+    session: aiohttp.ClientSession, search_term: str = ""
+) -> list[dict[str, str]]:
     """
     Fetches the master list of attributes from SIS.
 
@@ -108,7 +110,7 @@ async def get_all_attributes(session: aiohttp.ClientSession) -> list[dict[str, s
     ]
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_attribute"
-    params = {"offset": 1, "max": 2147483647}
+    params = {"searchTerm": search_term, "offset": 1, "max": 2147483647}
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
@@ -117,7 +119,9 @@ async def get_all_attributes(session: aiohttp.ClientSession) -> list[dict[str, s
     return data
 
 
-async def get_all_colleges(session: aiohttp.ClientSession) -> list[dict[str, str]]:
+async def get_all_colleges(
+    session: aiohttp.ClientSession, search_term: str = ""
+) -> list[dict[str, str]]:
     """
     Fetches the master list of colleges (schools) and codes from SIS.
 
@@ -131,7 +135,7 @@ async def get_all_colleges(session: aiohttp.ClientSession) -> list[dict[str, str
     ]
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_college"
-    params = {"offset": 1, "max": 2147483647}
+    params = {"searchTerm": search_term, "offset": 1, "max": 2147483647}
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
