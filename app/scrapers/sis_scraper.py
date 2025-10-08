@@ -308,7 +308,7 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
             f"\tSeasons: {', '.join(season.capitalize() for season in seasons)}"
         )
 
-        print("Fetching subject name to code mapping...")
+        print("Fetching subject name to code mapping")
         async with aiohttp.ClientSession() as session:
             subject_name_code_map = await get_subject_name_code_map(
                 session, seasons=seasons
@@ -340,7 +340,9 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
         return False
 
     end_time = time.time()
-    print(f"Total time elapsed: {end_time - start_time:.2f} seconds")
+    print(
+        "SIS scraper completed\n" f"\tTime elapsed: {end_time - start_time:.2f} seconds"
+    )
 
     return True
 
