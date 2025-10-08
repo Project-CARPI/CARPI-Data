@@ -12,6 +12,7 @@ RESTRICTION_TYPE_MAP = {
     "Majors": "major",
     "Classes": "classification",
     "Levels": "level",
+    "Degrees": "degree",
 }
 
 
@@ -295,13 +296,13 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
         "not_level": [],
         "classification": [],
         "not_classification": [],
+        "degree": [],
+        "not_degree": [],
     }
     restrictions_tag = soup.find("section", {"aria-labelledby": "restrictions"})
     # Other known restriction header patterns include:
     # "Special Approvals:"
-    restriction_header_pattern = (
-        r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels):"
-    )
+    restriction_header_pattern = r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels|Degrees):"
     # All known children of the restrictions section are <div>, <span<>, or <br> tags
     # Tags relevant to restrictions are only known to be <span> tags
     restrictions_content = [
