@@ -24,6 +24,24 @@ class ClassColumn(str, Enum):
     TERM = "term"
 
 
+def html_unescape(obj: Any) -> Any:
+    """
+    Recursively unescape HTML entities in all string values within a complex
+    structure (dicts, lists, tuples, sets). Dict keys are unescaped too.
+    """
+    if isinstance(obj, str):
+        return html.unescape(obj)
+    if isinstance(obj, dict):
+        return {html_unescape(k): html_unescape(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [html_unescape(i) for i in obj]
+    if isinstance(obj, tuple):
+        return tuple(html_unescape(i) for i in obj)
+    if isinstance(obj, set):
+        return {html_unescape(i) for i in obj}
+    return obj
+
+
 async def get_term_subjects(
     session: aiohttp.ClientSession, term: str
 ) -> list[dict[str, str]]:
@@ -45,8 +63,8 @@ async def get_term_subjects(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
     data = json.loads(raw_data)
+    data = html_unescape(data)
     return data
 
 
@@ -71,8 +89,8 @@ async def get_term_instructors(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
     data = json.loads(raw_data)
+    data = html_unescape(data)
     return data
 
 
@@ -94,8 +112,8 @@ async def get_all_attributes(session: aiohttp.ClientSession) -> list[dict[str, s
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
     data = json.loads(raw_data)
+    data = html_unescape(data)
     return data
 
 
@@ -117,8 +135,8 @@ async def get_all_colleges(session: aiohttp.ClientSession) -> list[dict[str, str
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
     data = json.loads(raw_data)
+    data = html_unescape(data)
     return data
 
 
@@ -163,8 +181,8 @@ async def class_search(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
     data = json.loads(raw_data)
+    data = html_unescape(data)
     course_data = data["data"]
     if course_data is None:
         return []
@@ -188,7 +206,7 @@ async def get_class_description(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
+    raw_data = html_unescape(raw_data)
     description_data = {
         "description": "",
         "when_offered": "",
@@ -234,7 +252,7 @@ async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: s
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
+    raw_data = html_unescape(raw_data)
     soup = bs4.BeautifulSoup(raw_data, "html5lib")
     attributes = []
     attribute_tags = soup.find_all("span", {"class": "attribute-text"})
@@ -264,7 +282,7 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
+    raw_data = html_unescape(raw_data)
     soup = bs4.BeautifulSoup(raw_data, "html5lib")
     restrictions_data = {
         "major": [],
@@ -397,7 +415,7 @@ async def get_class_corequisites(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
+    raw_data = html_unescape(raw_data)
     soup = bs4.BeautifulSoup(raw_data, "html5lib")
     coreqs_tag = soup.find("section", {"aria-labelledby": "coReqs"})
     coreqs_table = coreqs_tag.find("table", {"class": "basePreqTable"})
@@ -460,7 +478,7 @@ async def get_class_crosslists(
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
-    raw_data = html.unescape(raw_data)
+    raw_data = html_unescape(raw_data)
     soup = bs4.BeautifulSoup(raw_data, "html5lib")
     crosslists_tag = soup.find("section", {"aria-labelledby": "xlstSections"})
     crosslists_table = crosslists_tag.table
