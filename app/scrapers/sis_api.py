@@ -158,7 +158,7 @@ async def class_search(
     session: aiohttp.ClientSession,
     term: str,
     subject: str,
-    max_size: int = 1000,
+    max_size: int = 2147483647,
     sort_column: ClassColumn = ClassColumn.SUBJECT_DESCRIPTION,
     sort_asc: bool = True,
 ) -> list[dict[str, Any]]:
