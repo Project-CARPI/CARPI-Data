@@ -293,8 +293,8 @@ async def main(
     start_year: int = 1998,
     end_year: int = datetime.now().year,
     seasons: list[str] = None,
-    semaphore: asyncio.Semaphore = asyncio.Semaphore(20),
-    limit_per_host: int = 10,
+    semaphore_val: int = 10,
+    limit_per_host: int = 5,
 ) -> bool:
     """
     Runs the SIS scraper for the specified range of years and seasons.
@@ -329,13 +329,14 @@ async def main(
 
     try:
         # Limit concurrent client sessions and simultaneous connections
-        semaphore = asyncio.Semaphore(20)
-        limit_per_host = 10
+        semaphore = asyncio.Semaphore(semaphore_val)
 
         logger.info(
             f"Starting SIS scraper with settings:\n"
-            f"\tYears: {start_year} - {end_year}\n"
-            f"\tSeasons: {', '.join(season.capitalize() for season in seasons)}"
+            f"  Years: {start_year} - {end_year}\n"
+            f"  Seasons: {', '.join(season.capitalize() for season in seasons)}\n"
+            f"  Max concurrent sessions: {semaphore._value}\n"
+            f"  Max concurrent connections per session: {limit_per_host}"
         )
 
         logger.info("Fetching subject name to code mapping")
