@@ -52,6 +52,7 @@ async def get_term_subjects(
     invalid or doesn't exist, returns an empty list.
 
     Returned data format is as follows:
+    ```
     [
         {
             "code": "ADMN",
@@ -59,6 +60,7 @@ async def get_term_subjects(
         },
         ...
     ]
+    ```
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_subject"
     params = {"term": term, "offset": 1, "max": 2147483647}
@@ -78,13 +80,15 @@ async def get_term_instructors(
     or doesn't exist, returns an empty list.
 
     Returned data format is as follows:
+    ```
     [
         {
-            "code": "71297",
-            "description": "Abbott, Claude"
+            "code": "12345",
+            "description": "Last, First"
         },
         ...
     ]
+    ```
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_instructor"
     params = {"term": term, "offset": 1, "max": 2147483647}
@@ -103,6 +107,7 @@ async def get_all_attributes(
     Fetches the master list of attributes from SIS.
 
     Returned data format is as follows:
+    ```
     [
         {
             "code": "COMM",
@@ -110,6 +115,7 @@ async def get_all_attributes(
         },
         ...
     ]
+    ```
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_attribute"
     params = {"searchTerm": search_term, "offset": 1, "max": 2147483647}
@@ -129,6 +135,7 @@ async def get_all_colleges(
     with campuses.
 
     Returned data format is as follows:
+    ```
     [
         {
             "code": "S",
@@ -136,6 +143,7 @@ async def get_all_colleges(
         },
         ...
     ]
+    ```
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_college"
     params = {"searchTerm": search_term, "offset": 1, "max": 2147483647}
@@ -155,6 +163,7 @@ async def get_all_campuses(
     colleges (schools).
 
     Returned data format is as follows:
+    ```
     [
         {
             "code": "T",
@@ -162,6 +171,7 @@ async def get_all_campuses(
         },
         ...
     ]
+    ```
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_campus"
     params = {"searchTerm": search_term}
@@ -255,12 +265,14 @@ async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: s
     Fetches and parses data from the "Attributes" tab of a class details page.
 
     Returned data format is as follows:
+    ```
     [
         "Attribute 1",
         "Attribute 2",
         "Attribute 3",
         ...
     ]
+    ```
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionAttributes"
     params = {"term": term, "courseReferenceNumber": crn}
@@ -281,6 +293,7 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
     Fetches and parses data from the "Restrictions" tab of a class details page.
 
     Returned data format is as follows:
+    ```
     {
         "major": ["Allowed Major 1", ...],
         "not_major": ["Disallowed Major 1", ...],
@@ -289,6 +302,7 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
         "classification": ["Allowed Classification 1", ...],
         "not_classification": ["Disallowed Classification 1", ...]
     }
+    ```
     """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getRestrictions"
@@ -381,12 +395,12 @@ async def get_class_prerequisites(
                 "id": 1,
                 "type": "or",
                 "values": [
-                    "PHYS 1200",
+                    "Physics 1200",
                     ...
                 ]
             },
-            "CSCI 1100",
-            "MATH 1010"
+            "Computer Science 1100",
+            "Mathematics 1010"
         ]
     }
     ```
@@ -446,11 +460,13 @@ async def get_class_corequisites(
     e.g. "Biology" -> "BIOL".
 
     Returned data format is as follows:
+    ```
     [
         "Computer Science 1100",
         "Mathematics 1010",
         ...
     ]
+    ```
     """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCorequisites"
@@ -509,11 +525,13 @@ async def get_class_crosslists(
     e.g. "Biology" -> "BIOL".
 
     Returned data format is as follows:
+    ```
     [
         "Computer Science 1100",
         "Mathematics 1010",
         ...
     ]
+    ```
     """
     url = (
         "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getXlstSections"
