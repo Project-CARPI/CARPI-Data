@@ -13,6 +13,7 @@ RESTRICTION_TYPE_MAP = {
     "Classes": "classification",
     "Levels": "level",
     "Degrees": "degree",
+    "Campuses": "campus",
 }
 
 
@@ -249,6 +250,7 @@ async def get_class_description(
         text.strip("\n").strip() for text in description_tag.text.split("\n")
     ]
     for text in description_text:
+        print(text or "EMPTY")
         if text.startswith("When Offered:"):
             description_data["when_offered"] = text.replace("When Offered: ", "")
         # Skip useless fields that can be obtained elsewhere
@@ -325,11 +327,13 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
         "not_classification": [],
         "degree": [],
         "not_degree": [],
+        "campus": [],
+        "not_campus": [],
     }
     restrictions_tag = soup.find("section", {"aria-labelledby": "restrictions"})
     # Other known restriction header patterns include:
     # "Special Approvals:"
-    restriction_header_pattern = r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels|Degrees):"
+    restriction_header_pattern = r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels|Degrees|Campuses):"
     # All known children of the restrictions section are <div>, <span<>, or <br> tags
     # Tags relevant to restrictions are only known to be <span> tags
     restrictions_content = [
