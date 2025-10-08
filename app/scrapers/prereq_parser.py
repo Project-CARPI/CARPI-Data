@@ -122,7 +122,9 @@ def parse_parentheses(p_string: str) -> tuple[str, list[str | PrereqLevel]]:
 
 
 def add_level_ids(level: PrereqLevel) -> None:
-    """Adds IDs to levels in the tree, incrementing in a breadth-first order."""
+    """
+    Adds IDs to levels in the tree, incrementing in a breadth-first order.
+    """
     level.set_id(0)
     id = 1
     levels = level.get_levels()
@@ -157,7 +159,9 @@ def trim_code(code: str) -> str:
 
 
 def check_same_type(level: PrereqLevel) -> bool:
-    """Checks if the level has a sublevel of the same type."""
+    """
+    Checks if the level has a sublevel of the same type.
+    """
     for val in level.values:
         if isinstance(val, PrereqLevel):
             if val.type == level.type:
@@ -181,7 +185,9 @@ def remove_same_level(level: PrereqLevel) -> None:
 
 
 def remove_prereq_overrides(level: PrereqLevel) -> None:
-    """Recursively traverses the tree and removes any "Prerequisite Override" values."""
+    """
+    Recursively traverses the tree and removes any "Prerequisite Override" values.
+    """
     i = 0
     while i < len(level.values):
         if isinstance(level.values[i], PrereqLevel):
@@ -231,7 +237,9 @@ def set_default_type(level: PrereqLevel) -> None:
 
 
 def remove_empty_levels(level: PrereqLevel) -> bool:
-    """Recursively traverses the tree and removes levels without any values."""
+    """
+    Recursively traverses the tree and removes levels without any values.
+    """
     i = 0
     while i < len(level.values):
         if isinstance(level.values[i], PrereqLevel):
@@ -255,7 +263,9 @@ def fix_wildcards(level: PrereqLevel) -> None:
 
 
 def fix_wildcard(code: str) -> str:
-    """Given a course code, replaces any non-numeric characters with "x"."""
+    """
+    Given a course code, replaces any non-numeric characters with "x".
+    """
     dept = code[:4]
     num = code[5:]
     new_num = ""
@@ -352,5 +362,5 @@ def parse_prereq(course: str, string: str) -> dict:
     add_level_ids(level)
     trim_codes(level)
     fix_wildcards(level)
-    check_values(course, level)
+    # check_values(course, level)
     return level.to_json()

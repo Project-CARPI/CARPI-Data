@@ -362,10 +362,34 @@ async def get_class_prerequisites(
     session: aiohttp.ClientSession,
     term: str,
     crn: str,
-    subject_name_code_map: dict[str, str],
+    subject_name_code_map: dict[str, str] = None,
 ) -> dict[str, Any]:
     """
     Fetches and parses data from the "Prerequisites" tab of a class details page.
+
+    Accepts an optional subject name to subject code mapping. If provided, subject
+    names will be attempted to be converted to subject codes in the returned data,
+    e.g. "Biology" -> "BIOL".
+
+    Returned data format is as follows:
+    ```
+    {
+        "id": 0,
+        "type": "and",
+        "values": [
+            {
+                "id": 1,
+                "type": "or",
+                "values": [
+                    "PHYS 1200",
+                    ...
+                ]
+            },
+            "CSCI 1100",
+            "MATH 1010"
+        ]
+    }
+    ```
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites"
     params = {"term": term, "courseReferenceNumber": crn}
@@ -387,8 +411,11 @@ async def get_class_prerequisites(
         if cols[2].text != "":
             data += f" {cols[2].text} {cols[3].text} "
         else:
-            if cols[4].text not in subject_name_code_map:
-                print(f"Unknown department in CRN {crn}: {cols[4].text}")
+            # Convert subject name to code if mapping is provided
+            if (
+                subject_name_code_map is None
+                or cols[4].text not in subject_name_code_map
+            ):
                 data += f" {cols[4].text} {cols[5].text} "
             else:
                 data += f" {subject_name_code_map[cols[4].text]} {cols[5].text} "
