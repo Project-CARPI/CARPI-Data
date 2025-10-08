@@ -1,5 +1,7 @@
 import re
 
+from app import logger
+
 
 class PrereqLevel:
     """
@@ -292,13 +294,13 @@ def check_values(course: str, level: PrereqLevel) -> None:
             raise Exception("Error parsing prereqs for " + course + " - " + val)
 
 
-def parse_prereq(course: str, string: str) -> dict:
+def parse_prereq(term: str, crn: str, prereq_string: str) -> dict:
     """
-    Given a course code and a prerequisite string, parses the string into a JSON object
-    that represents a tree structure of the prerequisites.
+    Given a term, CRN, and prerequisite string, parses the string into a JSON object that
+    represents a tree structure of the prerequisites.
 
-    The course code is used for error messages to help with debugging if the data is
-    invalid.
+    The term and CRN are used only in error messages to assist with debugging if any data
+    is invalid.
 
     Examples:
 
@@ -343,12 +345,12 @@ def parse_prereq(course: str, string: str) -> dict:
         ]
     }
     """
-    if string == "":
+    if prereq_string == "":
         return {}
     try:
-        parsed, values = parse_parentheses(string)
+        parsed, values = parse_parentheses(prereq_string)
     except ParenthesisBalanceError as e:
-        print(f"{course} - {e}")
+        logger.error(f"Error parsing prerequisites for CRN {crn} in term {term} - {e}")
         return {}
     level = PrereqLevel(parsed, values)
     remove_prereq_overrides(level)

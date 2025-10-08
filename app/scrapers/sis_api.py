@@ -443,11 +443,14 @@ async def get_class_prerequisites(
         data = data.replace(" )", ")").strip()
     if data:
         try:
-            return parse_prereq(crn, data)
+            return parse_prereq(term, crn, data)
         except Exception as e:
             logger.error(
-                f"Error parsing prerequisites for CRN {crn} with data: {data} - {e}"
+                f"Error parsing prerequisites for CRN {crn} in term {term} with data: {data}\n{e}"
             )
+            import traceback
+
+            traceback.print_exc()
     return {}
 
 
