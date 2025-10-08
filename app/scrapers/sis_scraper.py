@@ -11,7 +11,24 @@ from sis_api import *
 OUTPUT_DATA_DIR = "scraper_data"
 
 
-async def get_reverse_subject_map(
+def get_term_code(year: int, season: str) -> str:
+    """
+    Converts a year and academic season into a term code used by SIS.
+    """
+    if season is None:
+        return ""
+    season_lower = season.lower().strip()
+    if season_lower == "fall":
+        return f"{year}09"
+    elif season_lower == "summer":
+        return f"{year}05"
+    elif season_lower == "spring":
+        return f"{year}01"
+    else:
+        return ""
+
+
+async def get_subject_name_code_map(
     session: aiohttp.ClientSession,
     start_year: int = 1998,
     end_year: int = datetime.now().year,
@@ -19,7 +36,7 @@ async def get_reverse_subject_map(
 ) -> dict[str, str]:
     """
     Fetches the list of subjects from the specified range of years and seasons, and
-    returns a "reverse" mapping of subject names to subject codes.
+    returns a mapping of subject names to subject codes.
 
     Defaults to a range from 1998 to the current year, and Spring, Summer, and Fall
     seasons. SIS data begins in Summer 1998.
@@ -95,7 +112,7 @@ async def process_class_details(
         course_data[course_code] = {
             "course_name": class_entry["courseTitle"],
             "course_detail": {
-                "description": description_data["description"],
+                "description": description_data,
                 "corequisite": corequisites_data,
                 "prerequisite": prerequisites_data,
                 "crosslist": crosslists_data,
@@ -105,7 +122,6 @@ async def process_class_details(
                     "min": float("inf"),
                     "max": 0,
                 },
-                "offered": description_data["when_offered"],
                 "sections": [],
             },
         }
@@ -218,7 +234,6 @@ async def get_term_course_data(
 
     Writes data as JSON after all subjects in the term have been processed.
     """
-    print(f"Fetching subject list for term: {term}")
     async with aiohttp.ClientSession() as session:
         subjects = await get_term_subjects(session, term)
     print(f"Processing {len(subjects)} subjects for term: {term}")
@@ -260,23 +275,6 @@ async def get_term_course_data(
         json.dump(all_course_data, f, indent=4, ensure_ascii=False)
 
 
-def get_term_code(year: int, season: str) -> str:
-    """
-    Converts a year and academic season into a term code used by SIS.
-    """
-    if season is None:
-        return ""
-    season_lower = season.lower().strip()
-    if season_lower == "fall":
-        return f"{year}09"
-    elif season_lower == "summer":
-        return f"{year}05"
-    elif season_lower == "spring":
-        return f"{year}01"
-    else:
-        return ""
-
-
 async def main(start_year: int, end_year: int, seasons: list[str] = None) -> bool:
     """
     Runs the SIS scraper for the specified range of years and seasons.
@@ -304,10 +302,15 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
         semaphore = asyncio.Semaphore(50)
         limit_per_host = 20
 
-        # Create master subject name to subject code mapping
-        print("Fetching subject name to subject code mapping...")
+        print(
+            f"Starting SIS scraper with settings:\n"
+            f"\tYears: {start_year} - {end_year}\n"
+            f"\tSeasons: {', '.join(season.capitalize() for season in seasons)}"
+        )
+
+        print("Fetching subject name to code mapping...")
         async with aiohttp.ClientSession() as session:
-            subject_name_code_map = await get_reverse_subject_map(
+            subject_name_code_map = await get_subject_name_code_map(
                 session, seasons=seasons
             )
 

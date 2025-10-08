@@ -224,15 +224,12 @@ async def class_search(
 
 async def get_class_description(
     session: aiohttp.ClientSession, term: str, crn: str
-) -> dict[str, str]:
+) -> str:
     """
     Fetches and parses data from the "Course Description" tab of a class details page.
 
-    Returned data format is as follows:
-    {
-        "description": "This course provides an introduction to ...",
-        "when_offered": "Spring, Summer, and Fall"
-    }
+    Returns a string containing the course description, without any additional fields
+    such as "When Offered", "Credit Hours", "Prerequisite", etc.
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getCourseDescription"
     params = {"term": term, "courseReferenceNumber": crn}
@@ -240,33 +237,17 @@ async def get_class_description(
         response.raise_for_status()
         raw_data = await response.text()
     raw_data = html_unescape(raw_data)
-    description_data = {
-        "description": "",
-        "when_offered": "",
-    }
     soup = bs4.BeautifulSoup(raw_data, "html5lib")
     description_tag = soup.find("section", {"aria-labelledby": "courseDescription"})
-    description_text = [
-        text.strip("\n").strip() for text in description_tag.text.split("\n")
+    if description_tag is None:
+        print(f"No description found for term and CRN: {term} - {crn}")
+        return ""
+    description_text_list = [
+        text.strip() for text in description_tag.get_text(separator="\n").split("\n")
     ]
-    for text in description_text:
-        print(text or "EMPTY")
-        if text.startswith("When Offered:"):
-            description_data["when_offered"] = text.replace("When Offered: ", "")
-        # Skip useless fields that can be obtained elsewhere
-        elif text.startswith("Credit Hours:"):
-            continue
-        elif text.startswith("Contact, Lecture or Lab Hours:"):
-            continue
-        elif text.startswith("Prerequisite:"):
-            continue
-        elif text.startswith("Corequisite:"):
-            continue
-        elif text.startswith("Cross Listed:"):
-            continue
-        else:
-            description_data["description"] += text
-    return description_data
+    for text in description_text_list:
+        if text != "":
+            return text
 
 
 async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: str):
