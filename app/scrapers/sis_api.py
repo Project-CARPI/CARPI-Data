@@ -124,7 +124,8 @@ async def get_all_colleges(
     session: aiohttp.ClientSession, search_term: str = ""
 ) -> list[dict[str, str]]:
     """
-    Fetches the master list of colleges (schools) and codes from SIS.
+    Fetches the master list of colleges (schools) and codes from SIS. Not to be confused
+    with campuses.
 
     Returned data format is as follows:
     [
@@ -137,6 +138,32 @@ async def get_all_colleges(
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_college"
     params = {"searchTerm": search_term, "offset": 1, "max": 2147483647}
+    async with session.get(url, params=params) as response:
+        response.raise_for_status()
+        raw_data = await response.text()
+    data = json.loads(raw_data)
+    data = html_unescape(data)
+    return data
+
+
+async def get_all_campuses(
+    session: aiohttp.ClientSession, search_term: str = ""
+) -> list[dict[str, str]]:
+    """
+    Fetches the master list of campuses and codes from SIS. Not to be confused with
+    colleges (schools).
+
+    Returned data format is as follows:
+    [
+        {
+            "code": "T",
+            "description": "Troy"
+        },
+        ...
+    ]
+    """
+    url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/classSearch/get_campus"
+    params = {"searchTerm": search_term}
     async with session.get(url, params=params) as response:
         response.raise_for_status()
         raw_data = await response.text()
