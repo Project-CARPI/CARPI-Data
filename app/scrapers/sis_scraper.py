@@ -6,9 +6,20 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
-from sis_api import *
 
-OUTPUT_DATA_DIR = "scraper_data"
+from app import logger
+
+from .sis_api import *
+
+_OUTPUT_DATA_DIR = Path(__file__).parent / "scraper_data"
+_IS_RUNNING = False
+
+
+def is_running() -> bool:
+    """
+    Returns whether the scraper is currently running.
+    """
+    return _IS_RUNNING
 
 
 def get_term_code(year: int, season: str) -> str:
@@ -209,7 +220,7 @@ async def get_course_data(
                 # Return data sorted by course code
                 return dict(sorted(course_data.items()))
             except aiohttp.ClientError as e:
-                print(f"Error processing subject {subject} in term {term}: {e}")
+                logger.error(f"Error processing subject {subject} in term {term}: {e}")
                 return {}
 
 
@@ -219,7 +230,7 @@ async def get_term_course_data(
     subject_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
-) -> dict[str, dict[str, Any]]:
+) -> None:
     """
     Gets all course data for a given term, which includes all subjects in the term.
 
@@ -236,7 +247,7 @@ async def get_term_course_data(
     """
     async with aiohttp.ClientSession() as session:
         subjects = await get_term_subjects(session, term)
-    print(f"Processing {len(subjects)} subjects for term: {term}")
+    logger.info(f"Processing {len(subjects)} subjects for term: {term}")
 
     # Stores all course data for the term
     all_course_data = {}
@@ -262,6 +273,9 @@ async def get_term_course_data(
         course_data = tasks[i].result()
         all_course_data[subject["code"]]["courses"] = course_data
 
+    if len(all_course_data) == 0:
+        return
+
     # Write all data for term to JSON file
     if output_path is None:
         output_path = Path(f"data/{term}.json")
@@ -270,17 +284,27 @@ async def get_term_course_data(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"Writing data to {output_path}")
+    logger.info(f"Writing data to {output_path}")
     with output_path.open("w") as f:
         json.dump(all_course_data, f, indent=4, ensure_ascii=False)
 
 
-async def main(start_year: int, end_year: int, seasons: list[str] = None) -> bool:
+async def main(
+    start_year: int = 1998,
+    end_year: int = datetime.now().year,
+    seasons: list[str] = None,
+    semaphore: asyncio.Semaphore = asyncio.Semaphore(20),
+    limit_per_host: int = 10,
+) -> bool:
     """
     Runs the SIS scraper for the specified range of years and seasons.
 
     Seasons can be any combination of "spring", "summer", and "fall". If not specified,
     all three seasons will be processed by default.
+
+    Spawns multiple client sessions to process subjects in parallel, which can optionally
+    be limited by a semaphore. An additional limit can be placed on the number of
+    simultaneous connections a session can make to the SIS server.
 
     Returns True on success or False on any unhandled failure.
     """
@@ -292,6 +316,12 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
     # The term and subject search state on the SIS server must be reset before each attempt
     # to fetch classes from a term and subject.
 
+    global _IS_RUNNING
+    if _IS_RUNNING:
+        logger.warning("Scraper run requested but scraper is already running")
+        return False
+    _IS_RUNNING = True
+
     start_time = time.time()
 
     if seasons is None:
@@ -299,16 +329,16 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
 
     try:
         # Limit concurrent client sessions and simultaneous connections
-        semaphore = asyncio.Semaphore(50)
-        limit_per_host = 20
+        semaphore = asyncio.Semaphore(20)
+        limit_per_host = 10
 
-        print(
+        logger.info(
             f"Starting SIS scraper with settings:\n"
             f"\tYears: {start_year} - {end_year}\n"
             f"\tSeasons: {', '.join(season.capitalize() for season in seasons)}"
         )
 
-        print("Fetching subject name to code mapping")
+        logger.info("Fetching subject name to code mapping")
         async with aiohttp.ClientSession() as session:
             subject_name_code_map = await get_subject_name_code_map(
                 session, seasons=seasons
@@ -321,7 +351,7 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
                     term = get_term_code(year, season)
                     if term == "":
                         continue
-                    output_path = Path(OUTPUT_DATA_DIR) / f"{term}.json"
+                    output_path = Path(_OUTPUT_DATA_DIR) / f"{term}.json"
                     tg.create_task(
                         get_term_course_data(
                             term,
@@ -333,17 +363,19 @@ async def main(start_year: int, end_year: int, seasons: list[str] = None) -> boo
                     )
 
     except Exception as e:
-        print(f"Error in main: {e}")
+        logger.error(f"Error in main: {e}")
         import traceback
 
         traceback.print_exc()
+        _IS_RUNNING = False
         return False
 
     end_time = time.time()
-    print(
+    logger.info(
         "SIS scraper completed\n" f"\tTime elapsed: {end_time - start_time:.2f} seconds"
     )
 
+    _IS_RUNNING = False
     return True
 
 

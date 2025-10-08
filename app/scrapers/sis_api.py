@@ -6,7 +6,10 @@ from typing import Any
 
 import aiohttp
 import bs4
-from prereq_parser import parse_prereq
+
+from app import logger
+
+from .prereq_parser import parse_prereq
 
 RESTRICTION_TYPE_MAP = {
     "Majors": "major",
@@ -250,7 +253,7 @@ async def get_class_description(
     soup = bs4.BeautifulSoup(raw_data, "html5lib")
     description_tag = soup.find("section", {"aria-labelledby": "courseDescription"})
     if description_tag is None:
-        print(f"No description found for term and CRN: {term} - {crn}")
+        logger.warning(f"No description found for term and CRN: {term} - {crn}")
         return ""
     description_text_list = [
         text.strip() for text in description_tag.get_text(separator="\n").split("\n")
@@ -340,7 +343,7 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
     while i < len(restrictions_content):
         content = restrictions_content[i]
         if content.string is None:
-            print(
+            logger.warning(
                 f"Skipping unexpected restriction content with no string for term and CRN: {term} - {crn}"
             )
             i += 1
@@ -358,7 +361,7 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
         while i < len(restrictions_content):
             next_content = restrictions_content[i]
             if next_content.string is None:
-                print(
+                logger.warning(
                     f"Skipping unexpected restriction content with no string for term and CRN: {term} - {crn}"
                 )
                 i += 1
@@ -442,7 +445,9 @@ async def get_class_prerequisites(
         try:
             return parse_prereq(crn, data)
         except Exception as e:
-            print(f"Error parsing prerequisites for CRN {crn} with data: {data} - {e}")
+            logger.error(
+                f"Error parsing prerequisites for CRN {crn} with data: {data} - {e}"
+            )
     return {}
 
 
@@ -488,7 +493,7 @@ async def get_class_corequisites(
     thead_cols = [th.text.strip() for th in coreqs_thead.find_all("th")]
     # Known corequisite columns are Subject, Course, and Title
     if len(thead_cols) != 3:
-        print(
+        logger.warning(
             f"Unexpected number of corequisite columns for term and CRN: {term} - {crn}"
         )
         return []
@@ -498,7 +503,7 @@ async def get_class_corequisites(
     for tr in coreqs_tbody.find_all("tr"):
         cols = [td.text.strip() for td in tr.find_all("td")]
         if len(cols) != len(thead_cols):
-            print(
+            logger.warning(
                 f"Skipping unexpected corequisite row with mismatched columns for term and CRN: {term} - {crn}"
             )
             continue
@@ -553,7 +558,7 @@ async def get_class_crosslists(
     thead_cols = [th.text.strip() for th in crosslists_thead.find_all("th")]
     # Known crosslist columns are CRN, Subject, Course Number, Title, and Section
     if len(thead_cols) != 5:
-        print(
+        logger.warning(
             f"Unexpected number of crosslist columns for term and CRN: {term} - {crn}"
         )
         return []
@@ -561,7 +566,7 @@ async def get_class_crosslists(
     for tr in crosslists_tbody.find_all("tr"):
         cols = [td.text.strip() for td in tr.find_all("td")]
         if len(cols) != len(thead_cols):
-            print(
+            logger.warning(
                 f"Skipping unexpected crosslist row with mismatched columns for term and CRN: {term} - {crn}"
             )
             continue
