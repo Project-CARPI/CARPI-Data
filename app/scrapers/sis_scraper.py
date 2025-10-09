@@ -339,13 +339,13 @@ async def main(
         # Limit concurrent client sessions and simultaneous connections
         semaphore = asyncio.Semaphore(semaphore_val)
 
+        logger.info("Starting SIS scraper with settings:")
+        logger.info(f"  Years: {start_year} - {end_year}")
         logger.info(
-            f"Starting SIS scraper with settings:\n"
-            f"  Years: {start_year} - {end_year}\n"
-            f"  Seasons: {', '.join(season.capitalize() for season in seasons)}\n"
-            f"  Max concurrent sessions: {semaphore._value}\n"
-            f"  Max concurrent connections per session: {limit_per_host}"
+            f"  Seasons: {', '.join(season.capitalize() for season in seasons)}"
         )
+        logger.info(f"  Max concurrent sessions: {semaphore._value}")
+        logger.info(f"  Max concurrent connections per session: {limit_per_host}")
 
         logger.info("Fetching subject name to code mapping")
         async with aiohttp.ClientSession() as session:
@@ -381,9 +381,8 @@ async def main(
         return False
 
     end_time = time.time()
-    logger.info(
-        "SIS scraper completed\n" f"\tTime elapsed: {end_time - start_time:.2f} seconds"
-    )
+    logger.info("SIS scraper completed")
+    logger.info(f"  Time elapsed: {end_time - start_time:.2f} seconds")
 
     _IS_RUNNING = False
     return True
