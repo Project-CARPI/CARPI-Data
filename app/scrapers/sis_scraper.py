@@ -176,6 +176,7 @@ async def get_course_data(
     subject_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
     limit_per_host: int = 5,
+    timeout: int = 60,
 ) -> dict[str, dict[str, Any]]:
     """
     Gets all course data for a given term and subject.
@@ -200,7 +201,7 @@ async def get_course_data(
     async with semaphore:
         # Limit simultaneous connections to SIS server per session
         connector = aiohttp.TCPConnector(limit_per_host=limit_per_host)
-        timeout = aiohttp.ClientTimeout(total=60)
+        timeout = aiohttp.ClientTimeout(total=timeout)
 
         async with aiohttp.ClientSession(
             connector=connector, timeout=timeout
@@ -230,6 +231,7 @@ async def get_term_course_data(
     subject_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
+    timeout: int = 60,
 ) -> None:
     """
     Gets all course data for a given term, which includes all subjects in the term.
@@ -263,7 +265,12 @@ async def get_term_course_data(
             }
             task = tg.create_task(
                 get_course_data(
-                    term, subject_code, subject_name_code_map, semaphore, limit_per_host
+                    term,
+                    subject_code,
+                    subject_name_code_map,
+                    semaphore,
+                    limit_per_host,
+                    timeout,
                 )
             )
             tasks.append(task)
@@ -295,6 +302,7 @@ async def main(
     seasons: list[str] = None,
     semaphore_val: int = 10,
     limit_per_host: int = 5,
+    timeout: int = 60,
 ) -> bool:
     """
     Runs the SIS scraper for the specified range of years and seasons.
@@ -360,6 +368,7 @@ async def main(
                             subject_name_code_map,
                             semaphore,
                             limit_per_host,
+                            timeout,
                         )
                     )
 
