@@ -302,7 +302,7 @@ async def main(
     seasons: list[str] = None,
     semaphore_val: int = 10,
     limit_per_host: int = 5,
-    timeout: int = 60,
+    timeout: int = 120,
 ) -> bool:
     """
     Runs the SIS scraper for the specified range of years and seasons.
