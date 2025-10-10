@@ -75,17 +75,12 @@ async def process_class_details(
     session: aiohttp.ClientSession,
     course_data: dict[str, Any],
     class_entry: dict[str, Any],
-    subject_name_code_map: dict[str, str] = None,
 ) -> None:
     """
     Fetches and parses all details for a given class, populating the provided course
     data dictionary or adding to existing entries as appropriate.
 
     Takes as input class data fetched from SIS's class search endpoint.
-
-    Accepts an optional subject name to subject code mapping. If provided, subject
-    names will be attempted to be converted to subject codes in the returned data,
-    e.g. "Biology" -> "BIOL".
     """
     # Example course code: CSCI 1100
     course_code = f"{class_entry['subject']} {class_entry['courseNumber']}"
@@ -102,14 +97,12 @@ async def process_class_details(
                 get_class_restrictions(session, term, crn)
             )
             prerequisites_task = tg.create_task(
-                get_class_prerequisites(session, term, crn, subject_name_code_map)
+                get_class_prerequisites(session, term, crn)
             )
             corequisites_task = tg.create_task(
-                get_class_corequisites(session, term, crn, subject_name_code_map)
+                get_class_corequisites(session, term, crn)
             )
-            crosslists_task = tg.create_task(
-                get_class_crosslists(session, term, crn, subject_name_code_map)
-            )
+            crosslists_task = tg.create_task(get_class_crosslists(session, term, crn))
 
         # Wait for tasks to complete and get results
         description_data = description_task.result()
@@ -173,17 +166,12 @@ async def process_class_details(
 async def get_course_data(
     term: str,
     subject: str,
-    subject_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
     limit_per_host: int = 5,
     timeout: int = 60,
 ) -> dict[str, dict[str, Any]]:
     """
     Gets all course data for a given term and subject.
-
-    Accepts an optional subject name to subject code mapping. If provided, subject
-    names will be attempted to be converted to subject codes in the returned data,
-    e.g. "Biology" -> "BIOL".
 
     This function spawns its own client session to avoid session state conflicts with
     other subjects that may be processing concurrently. Optionally accepts a semaphore
@@ -214,9 +202,7 @@ async def get_course_data(
                 async with asyncio.TaskGroup() as tg:
                     for class_entry in class_data:
                         tg.create_task(
-                            process_class_details(
-                                session, course_data, class_entry, subject_name_code_map
-                            )
+                            process_class_details(session, course_data, class_entry)
                         )
                 # Return data sorted by course code
                 return dict(sorted(course_data.items()))
@@ -228,7 +214,6 @@ async def get_course_data(
 async def get_term_course_data(
     term: str,
     output_path: Path | str = None,
-    subject_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
     timeout: int = 60,
@@ -240,10 +225,6 @@ async def get_term_course_data(
     A semaphore is used to limit the number of concurrent sessions, and an additional
     limit is placed on the number of simultaneous connections a session can make to the
     SIS server.
-
-    Accepts an optional subject name to subject code mapping. If provided, subject
-    names will be attempted to be converted to subject codes in the returned data,
-    e.g. "Biology" -> "BIOL".
 
     Writes data as JSON after all subjects in the term have been processed.
     """
@@ -267,7 +248,6 @@ async def get_term_course_data(
                 get_course_data(
                     term,
                     subject_code,
-                    subject_name_code_map,
                     semaphore,
                     limit_per_host,
                     timeout,
@@ -347,12 +327,6 @@ async def main(
         logger.info(f"  Max concurrent sessions: {semaphore._value}")
         logger.info(f"  Max concurrent connections per session: {limit_per_host}")
 
-        logger.info("Fetching subject name to code mapping")
-        async with aiohttp.ClientSession() as session:
-            subject_name_code_map = await get_subject_name_code_map(
-                session, seasons=seasons
-            )
-
         # Process terms in parallel
         async with asyncio.TaskGroup() as tg:
             for year in range(start_year, end_year + 1):
@@ -365,7 +339,6 @@ async def main(
                         get_term_course_data(
                             term,
                             output_path,
-                            subject_name_code_map,
                             semaphore,
                             limit_per_host,
                             timeout,

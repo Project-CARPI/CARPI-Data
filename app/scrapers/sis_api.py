@@ -32,7 +32,7 @@ class ClassColumn(str, Enum):
 def html_unescape(obj: Any) -> Any:
     """
     Recursively unescape HTML entities in all string values within a complex
-    structure (dicts, lists, tuples, sets). Dict keys are unescaped too.
+    structure (dicts, lists, tuples, sets). Dictionary keys are unescaped too.
     """
     if isinstance(obj, str):
         return html.unescape(obj)
@@ -108,6 +108,10 @@ async def get_all_attributes(
 ) -> list[dict[str, str]]:
     """
     Fetches the master list of attributes from SIS.
+
+    Note that this is not actually a comprehensive list of all attributes used by
+    courses. For example, "FRSH" and "ONLI" are known attributes that are missing
+    from this list.
 
     Returned data format is as follows:
     ```
@@ -376,17 +380,10 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
 
 
 async def get_class_prerequisites(
-    session: aiohttp.ClientSession,
-    term: str,
-    crn: str,
-    subject_name_code_map: dict[str, str] = None,
+    session: aiohttp.ClientSession, term: str, crn: str
 ) -> dict[str, Any]:
     """
     Fetches and parses data from the "Prerequisites" tab of a class details page.
-
-    Accepts an optional subject name to subject code mapping. If provided, subject
-    names will be attempted to be converted to subject codes in the returned data,
-    e.g. "Biology" -> "BIOL".
 
     Returned data format is as follows:
     ```
@@ -428,14 +425,7 @@ async def get_class_prerequisites(
         if cols[2].text != "":
             data += f" {cols[2].text} {cols[3].text} "
         else:
-            # Convert subject name to code if mapping is provided
-            if (
-                subject_name_code_map is None
-                or cols[4].text not in subject_name_code_map
-            ):
-                data += f" {cols[4].text} {cols[5].text} "
-            else:
-                data += f" {subject_name_code_map[cols[4].text]} {cols[5].text} "
+            data += f" {cols[4].text} {cols[5].text} "
         data += " ) " if cols[8].text != "" else ""
         data = data.replace("  ", " ").strip()
         data = data.replace("  ", " ").strip()
@@ -458,14 +448,9 @@ async def get_class_corequisites(
     session: aiohttp.ClientSession,
     term: str,
     crn: str,
-    subject_name_code_map: dict[str, str] = None,
 ):
     """
     Fetches and parses data from the "Corequisites" tab of a class details page.
-
-    Accepts an optional subject name to subject code mapping. If provided, subject
-    names will be attempted to be converted to subject codes in the returned data,
-    e.g. "Biology" -> "BIOL".
 
     Returned data format is as follows:
     ```
@@ -500,8 +485,6 @@ async def get_class_corequisites(
             f"Unexpected number of corequisite columns for term and CRN: {term} - {crn}"
         )
         return []
-    # Corequisite list should be a list of course codes
-    # e.g. "CSCI 1100", "MATH 1010"
     coreqs = []
     for tr in coreqs_tbody.find_all("tr"):
         cols = [td.text.strip() for td in tr.find_all("td")]
@@ -511,9 +494,6 @@ async def get_class_corequisites(
             )
             continue
         subject = cols[0]
-        # Convert subject name to code if mapping is provided
-        if subject_name_code_map and subject in subject_name_code_map:
-            subject = subject_name_code_map[subject]
         course_num = cols[1]
         coreqs.append(f"{subject} {course_num}")
     return coreqs
@@ -523,14 +503,9 @@ async def get_class_crosslists(
     session: aiohttp.ClientSession,
     term: str,
     crn: str,
-    subject_name_code_map: dict[str, str] = None,
 ):
     """
     Fetches and parses data from the "Cross Listed" tab of a class details page.
-
-    Accepts an optional subject name to subject code mapping. If provided, subject
-    names will be attempted to be converted to subject codes in the returned data,
-    e.g. "Biology" -> "BIOL".
 
     Returned data format is as follows:
     ```
@@ -575,8 +550,5 @@ async def get_class_crosslists(
             continue
         subject = cols[1]
         code = cols[2]
-        # Convert subject name to code if mapping is provided
-        if subject_name_code_map and subject in subject_name_code_map:
-            subject = subject_name_code_map[subject]
         crosslists.append(f"{subject} {code}")
     return crosslists
