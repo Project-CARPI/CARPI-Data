@@ -337,7 +337,7 @@ async def get_term_course_data(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Writing data to {output_path}")
-    with output_path.open("w") as f:
+    with output_path.open("w", encoding="utf-8") as f:
         json.dump(all_course_data, f, indent=4, ensure_ascii=False)
 
 
@@ -392,8 +392,8 @@ async def main(
         logger.info(
             f"Attempting to load existing subject code mappings from {_CODE_MAPPINGS_DIR}"
         )
-        if _CODE_MAPPINGS_DIR.exists():
-            with _SUBJ_NAME_CODE_MAP_PATH.open("r") as f:
+        if _SUBJ_NAME_CODE_MAP_PATH.exists():
+            with _SUBJ_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
                 subject_name_code_map = json.load(f)
             logger.info(f"  Loaded {len(subject_name_code_map)} subject code mappings")
 
@@ -401,7 +401,7 @@ async def main(
             f"Attempting to load existing known instructor RCSIDs from {_CODE_MAPPINGS_DIR}"
         )
         if _KNOWN_INSTRUCTOR_RCSIDS_PATH.exists():
-            with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("r") as f:
+            with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("r", encoding="utf-8") as f:
                 known_rcsid_list = json.load(f)
                 known_rcsid_set = set(known_rcsid_list)
             logger.info(f"  Loaded {len(known_rcsid_set)} known instructor RCSIDs")
@@ -410,7 +410,7 @@ async def main(
             f"Attempting to load existing restriction code mappings from {_CODE_MAPPINGS_DIR}"
         )
         if _RESTRICTION_NAME_CODE_MAP_PATH.exists():
-            with _RESTRICTION_NAME_CODE_MAP_PATH.open("r") as f:
+            with _RESTRICTION_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
                 restriction_name_code_map = json.load(f)
             logger.info(
                 f"  Loaded {len(restriction_name_code_map)} restriction code mappings"
@@ -420,7 +420,7 @@ async def main(
             f"Attempting to load existing attribute code mappings from {_CODE_MAPPINGS_DIR}"
         )
         if _ATTRIBUTE_NAME_CODE_MAP_PATH.exists():
-            with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("r") as f:
+            with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
                 attribute_name_code_map = json.load(f)
             logger.info(
                 f"  Loaded {len(attribute_name_code_map)} attribute code mappings"
@@ -464,25 +464,25 @@ async def main(
         logger.info(
             f"Writing {len(subject_name_code_map)} subject code mappings to {_SUBJ_NAME_CODE_MAP_PATH}"
         )
-        with _SUBJ_NAME_CODE_MAP_PATH.open("w") as f:
+        with _SUBJ_NAME_CODE_MAP_PATH.open("w", encoding="utf-8") as f:
             json.dump(subject_name_code_map, f, indent=4, ensure_ascii=False)
 
         logger.info(
             f"Writing {len(known_rcsid_set)} known instructor RCSIDs to {_KNOWN_INSTRUCTOR_RCSIDS_PATH}"
         )
-        with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("w") as f:
+        with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("w", encoding="utf-8") as f:
             json.dump(sorted(list(known_rcsid_set)), f, indent=4, ensure_ascii=False)
 
         logger.info(
             f"Writing {len(restriction_name_code_map)} restriction code mappings to {_RESTRICTION_NAME_CODE_MAP_PATH}"
         )
-        with _RESTRICTION_NAME_CODE_MAP_PATH.open("w") as f:
+        with _RESTRICTION_NAME_CODE_MAP_PATH.open("w", encoding="utf-8") as f:
             json.dump(restriction_name_code_map, f, indent=4, ensure_ascii=False)
 
         logger.info(
             f"Writing {len(attribute_name_code_map)} attribute code mappings to {_ATTRIBUTE_NAME_CODE_MAP_PATH}"
         )
-        with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("w") as f:
+        with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("w", encoding="utf-8") as f:
             json.dump(attribute_name_code_map, f, indent=4, ensure_ascii=False)
 
     except Exception as e:
