@@ -13,10 +13,15 @@ from .prereq_parser import parse_prereq
 
 RESTRICTION_TYPE_MAP = {
     "Majors": "major",
-    "Classes": "classification",
+    "Fields of Study (Major, Minor or Concentration)": "major",
+    "Minors": "minor",
     "Levels": "level",
+    "Classes": "classification",
     "Degrees": "degree",
+    "Programs": "degree",
+    "Departments": "department",
     "Campuses": "campus",
+    "Colleges": "college",
 }
 
 
@@ -267,7 +272,9 @@ async def get_class_description(
             return text
 
 
-async def get_class_attributes(session: aiohttp.ClientSession, term: str, crn: str):
+async def get_class_attributes(
+    session: aiohttp.ClientSession, term: str, crn: str
+) -> list[str]:
     """
     Fetches and parses data from the "Attributes" tab of a class details page.
 
@@ -323,19 +330,27 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
     restrictions_data = {
         "major": [],
         "not_major": [],
+        "minor": [],
+        "not_minor": [],
         "level": [],
         "not_level": [],
         "classification": [],
         "not_classification": [],
         "degree": [],
         "not_degree": [],
+        "department": [],
+        "not_department": [],
         "campus": [],
         "not_campus": [],
+        "college": [],
+        "not_college": [],
+        "special_approval": [],
     }
     restrictions_tag = soup.find("section", {"aria-labelledby": "restrictions"})
-    # Other known restriction header patterns include:
-    # "Special Approvals:"
-    restriction_header_pattern = r"(Must|Cannot) be enrolled in one of the following (Majors|Classes|Levels|Degrees|Campuses):"
+    escaped_keys = [re.escape(key) for key in RESTRICTION_TYPE_MAP.keys()]
+    restriction_header_pattern = rf"(Must|Cannot) be enrolled in one of the following ({'|'.join(escaped_keys)}):"
+    # "Special Approvals:" is the only other known header pattern
+    special_approvals_pattern = r"Special Approvals:"
     # All known children of the restrictions section are <div>, <span<>, or <br> tags
     # Tags relevant to restrictions are only known to be <span> tags
     restrictions_content = [
@@ -353,14 +368,19 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
             i += 1
             continue
         content_string = content.string.strip()
-        header_match = re.match(restriction_header_pattern, content_string)
+        header_match = re.match(restriction_header_pattern, content_string) or re.match(
+            special_approvals_pattern, content_string
+        )
         if header_match is None:
             i += 1
             continue
-        must_or_cannot, type_plural = header_match.groups()
-        key_base = RESTRICTION_TYPE_MAP[type_plural]
-        key = f"not_{key_base}" if must_or_cannot == "Cannot" else key_base
-        restriction_list = restrictions_data[key]
+        if len(header_match.groups()) == 0:
+            restriction_list = restrictions_data["special_approval"]
+        else:
+            must_or_cannot, type_plural = header_match.groups()
+            key_base = RESTRICTION_TYPE_MAP[type_plural]
+            key = f"not_{key_base}" if must_or_cannot == "Cannot" else key_base
+            restriction_list = restrictions_data[key]
         i += 1
         while i < len(restrictions_content):
             next_content = restrictions_content[i]

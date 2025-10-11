@@ -39,42 +39,13 @@ def get_term_code(year: int, season: str) -> str:
         return ""
 
 
-async def get_subject_name_code_map(
-    session: aiohttp.ClientSession,
-    start_year: int = 1998,
-    end_year: int = datetime.now().year,
-    seasons: list[str] = None,
-) -> dict[str, str]:
-    """
-    Fetches the list of subjects from the specified range of years and seasons, and
-    returns a mapping of subject names to subject codes.
-
-    Defaults to a range from 1998 to the current year, and Spring, Summer, and Fall
-    seasons. SIS data begins in Summer 1998.
-
-    Returned data format is as follows:
-    {
-        "Biology": "BIOL",
-        "Computer Science": "CSCI",
-        ...
-    }
-    """
-    subject_name_code_map = {}
-    if seasons is None:
-        seasons = ["spring", "summer", "fall"]
-    for year in range(start_year, end_year + 1):
-        for season in seasons:
-            term = get_term_code(year, season)
-            subjects = await get_term_subjects(session, term)
-            for subject in subjects:
-                subject_name_code_map[subject["description"]] = subject["code"]
-    return subject_name_code_map
-
-
 async def process_class_details(
     session: aiohttp.ClientSession,
     course_data: dict[str, Any],
     class_entry: dict[str, Any],
+    known_rcsid_set: set[str] = None,
+    attribute_name_code_map: dict[str, str] = None,
+    restriction_name_code_map: dict[str, str] = None,
 ) -> None:
     """
     Fetches and parses all details for a given class, populating the provided course
@@ -112,6 +83,32 @@ async def process_class_details(
         corequisites_data = corequisites_task.result()
         crosslists_data = crosslists_task.result()
 
+        if attribute_name_code_map is not None:
+            for attribute in attributes_data:
+                attribute_split = attribute.split()
+                if len(attribute_split) < 2:
+                    logger.warning(
+                        f"Unexpected attribute format for CRN {crn} in term {term}: {attribute}"
+                    )
+                    continue
+                attribute_code = attribute_split[-1].strip()
+                attribute_name = " ".join(attribute_split[:-1]).strip()
+                attribute_name_code_map[attribute_name] = attribute_code
+
+        if restriction_name_code_map is not None:
+            restriction_pattern = r"(.*)\((.*)\)"
+            for restriction_type in restrictions_data:
+                for restriction in restrictions_data[restriction_type]:
+                    restriction_match = re.match(restriction_pattern, restriction)
+                    if restriction_match is None or len(restriction_match.groups()) < 2:
+                        logger.warning(
+                            f"Unexpected restriction format for CRN {crn} in term {term}: {restriction}"
+                        )
+                        continue
+                    restriction_name = restriction_match.group(1).strip()
+                    restriction_code = restriction_match.group(2).strip()
+                    restriction_name_code_map[restriction_name] = restriction_code
+
         # Example course code: CSCI 1100
         course_data[course_code] = {
             "course_name": class_entry["courseTitle"],
@@ -147,8 +144,13 @@ async def process_class_details(
     class_faculty_rcsids = []
     for faculty in class_faculty:
         rcsid = f"Unknown RCSID ({faculty['displayName']})"
-        if "emailAddress" in faculty and faculty["emailAddress"] is not None:
-            rcsid = faculty["emailAddress"].replace("@rpi.edu", "")
+        if "emailAddress" in faculty:
+            email_address = faculty["emailAddress"]
+            if email_address is not None and email_address.endswith("@rpi.edu"):
+                rcsid = email_address.replace("@rpi.edu", "")
+                # Add to known RCSID set if provided
+                if known_rcsid_set is not None:
+                    known_rcsid_set.add(rcsid)
         class_faculty_rcsids.append(rcsid)
 
     course_sections.append(
@@ -166,6 +168,9 @@ async def process_class_details(
 async def get_course_data(
     term: str,
     subject: str,
+    known_rcsid_set: set[str] = None,
+    restriction_name_code_map: dict[str, str] = None,
+    attribute_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
     limit_per_host: int = 5,
     timeout: int = 60,
@@ -202,7 +207,14 @@ async def get_course_data(
                 async with asyncio.TaskGroup() as tg:
                     for class_entry in class_data:
                         tg.create_task(
-                            process_class_details(session, course_data, class_entry)
+                            process_class_details(
+                                session,
+                                course_data,
+                                class_entry,
+                                known_rcsid_set=known_rcsid_set,
+                                restriction_name_code_map=restriction_name_code_map,
+                                attribute_name_code_map=attribute_name_code_map,
+                            )
                         )
                 # Return data sorted by course code
                 return dict(sorted(course_data.items()))
@@ -214,6 +226,10 @@ async def get_course_data(
 async def get_term_course_data(
     term: str,
     output_path: Path | str = None,
+    subject_name_code_map: dict[str, str] = None,
+    known_rcsid_set: set[str] = None,
+    restriction_name_code_map: dict[str, str] = None,
+    attribute_name_code_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
     timeout: int = 60,
@@ -230,6 +246,9 @@ async def get_term_course_data(
     """
     async with aiohttp.ClientSession() as session:
         subjects = await get_term_subjects(session, term)
+    # Add subject name to code mappings
+    for subject in subjects:
+        subject_name_code_map[subject["description"]] = subject["code"]
     logger.info(f"Processing {len(subjects)} subjects for term: {term}")
 
     # Stores all course data for the term
@@ -248,9 +267,12 @@ async def get_term_course_data(
                 get_course_data(
                     term,
                     subject_code,
-                    semaphore,
-                    limit_per_host,
-                    timeout,
+                    known_rcsid_set=known_rcsid_set,
+                    restriction_name_code_map=restriction_name_code_map,
+                    attribute_name_code_map=attribute_name_code_map,
+                    semaphore=semaphore,
+                    limit_per_host=limit_per_host,
+                    timeout=timeout,
                 )
             )
             tasks.append(task)
@@ -265,7 +287,7 @@ async def get_term_course_data(
 
     # Write all data for term to JSON file
     if output_path is None:
-        output_path = Path(f"data/{term}.json")
+        output_path = _OUTPUT_DATA_DIR / f"{term}.json"
     elif isinstance(output_path, str):
         output_path = Path(output_path)
 
@@ -315,6 +337,11 @@ async def main(
     if seasons is None:
         seasons = ["spring", "summer", "fall"]
 
+    subject_name_code_map = {}
+    known_rcsid_set = set()
+    restriction_name_code_map = {}
+    attribute_name_code_map = {}
+
     try:
         # Limit concurrent client sessions and simultaneous connections
         semaphore = asyncio.Semaphore(semaphore_val)
@@ -338,10 +365,14 @@ async def main(
                     tg.create_task(
                         get_term_course_data(
                             term,
-                            output_path,
-                            semaphore,
-                            limit_per_host,
-                            timeout,
+                            output_path=output_path,
+                            subject_name_code_map=subject_name_code_map,
+                            known_rcsid_set=known_rcsid_set,
+                            restriction_name_code_map=restriction_name_code_map,
+                            attribute_name_code_map=attribute_name_code_map,
+                            semaphore=semaphore,
+                            limit_per_host=limit_per_host,
+                            timeout=timeout,
                         )
                     )
 
