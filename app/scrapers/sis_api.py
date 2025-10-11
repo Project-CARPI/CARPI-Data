@@ -392,7 +392,9 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
                 continue
             next_content_string = next_content.string.strip()
             # Stop if another restriction header is encountered
-            if re.match(restriction_header_pattern, next_content_string):
+            if re.match(restriction_header_pattern, next_content_string) or re.match(
+                special_approvals_pattern, next_content_string
+            ):
                 break
             restriction_list.append(next_content_string)
             i += 1
