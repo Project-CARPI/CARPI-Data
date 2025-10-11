@@ -390,24 +390,28 @@ async def main(
     try:
         # Load code maps for codifying scraped data in post-processing
         logger.info(
-            f"Attempting to load existing subject code mappings from {_CODE_MAPPINGS_DIR}"
+            f"Attempting to load existing subject code mappings from {_SUBJ_NAME_CODE_MAP_PATH}"
         )
         if _SUBJ_NAME_CODE_MAP_PATH.exists():
             with _SUBJ_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
                 subject_name_code_map = json.load(f)
             logger.info(f"  Loaded {len(subject_name_code_map)} subject code mappings")
+        else:
+            logger.info("  No existing subject code mappings found")
 
         logger.info(
-            f"Attempting to load existing known instructor RCSIDs from {_CODE_MAPPINGS_DIR}"
+            f"Attempting to load existing known instructor RCSIDs from {_KNOWN_INSTRUCTOR_RCSIDS_PATH}"
         )
         if _KNOWN_INSTRUCTOR_RCSIDS_PATH.exists():
             with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("r", encoding="utf-8") as f:
                 known_rcsid_list = json.load(f)
                 known_rcsid_set = set(known_rcsid_list)
             logger.info(f"  Loaded {len(known_rcsid_set)} known instructor RCSIDs")
+        else:
+            logger.info("  No existing known instructor RCSIDs found")
 
         logger.info(
-            f"Attempting to load existing restriction code mappings from {_CODE_MAPPINGS_DIR}"
+            f"Attempting to load existing restriction code mappings from {_RESTRICTION_NAME_CODE_MAP_PATH}"
         )
         if _RESTRICTION_NAME_CODE_MAP_PATH.exists():
             with _RESTRICTION_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
@@ -415,9 +419,11 @@ async def main(
             logger.info(
                 f"  Loaded {len(restriction_name_code_map)} restriction code mappings"
             )
+        else:
+            logger.info("  No existing restriction code mappings found")
 
         logger.info(
-            f"Attempting to load existing attribute code mappings from {_CODE_MAPPINGS_DIR}"
+            f"Attempting to load existing attribute code mappings from {_ATTRIBUTE_NAME_CODE_MAP_PATH}"
         )
         if _ATTRIBUTE_NAME_CODE_MAP_PATH.exists():
             with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
@@ -425,6 +431,8 @@ async def main(
             logger.info(
                 f"  Loaded {len(attribute_name_code_map)} attribute code mappings"
             )
+        else:
+            logger.info("  No existing attribute code mappings found")
 
         # Limit concurrent client sessions and simultaneous connections
         semaphore = asyncio.Semaphore(semaphore_val)
