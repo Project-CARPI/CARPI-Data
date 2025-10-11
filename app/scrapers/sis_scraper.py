@@ -12,6 +12,11 @@ from app import logger
 from .sis_api import *
 
 _OUTPUT_DATA_DIR = Path(__file__).parent / "scraper_data"
+_CODE_MAPPINGS_DIR = Path(__file__).parent / "code_mappings"
+_SUBJ_NAME_CODE_MAP_PATH = _CODE_MAPPINGS_DIR / "subject_name_code_map.json"
+_KNOWN_INSTRUCTOR_RCSIDS_PATH = _CODE_MAPPINGS_DIR / "known_instructor_rcsids.json"
+_RESTRICTION_NAME_CODE_MAP_PATH = _CODE_MAPPINGS_DIR / "restriction_name_code_map.json"
+_ATTRIBUTE_NAME_CODE_MAP_PATH = _CODE_MAPPINGS_DIR / "attribute_name_code_map.json"
 _IS_RUNNING = False
 
 
@@ -51,6 +56,10 @@ async def process_class_details(
     Fetches and parses all details for a given class, populating the provided course
     data dictionary or adding to existing entries as appropriate.
 
+    Accepts optional sets and maps to populate with known RCSIDs, attribute names to codes,
+    restriction names to codes, and subject names to codes. These would be used for
+    post-processing and codification of the scraped data.
+
     Takes as input class data fetched from SIS's class search endpoint.
     """
     # Example course code: CSCI 1100
@@ -83,6 +92,7 @@ async def process_class_details(
         corequisites_data = corequisites_task.result()
         crosslists_data = crosslists_task.result()
 
+        # Build attribute name to code map
         if attribute_name_code_map is not None:
             for attribute in attributes_data:
                 attribute_split = attribute.split()
@@ -93,8 +103,16 @@ async def process_class_details(
                     continue
                 attribute_code = attribute_split[-1].strip()
                 attribute_name = " ".join(attribute_split[:-1]).strip()
+                if (
+                    attribute_name in attribute_name_code_map
+                    and attribute_name_code_map[attribute_name] != attribute_code
+                ):
+                    logger.warning(
+                        f"Conflicting attribute codes for {attribute_name} in term {term}: {attribute_name_code_map[attribute_name]} vs. {attribute_code}"
+                    )
                 attribute_name_code_map[attribute_name] = attribute_code
 
+        # Build restriction name to code map
         if restriction_name_code_map is not None:
             restriction_pattern = r"(.*)\((.*)\)"
             for restriction_type in restrictions_data:
@@ -107,6 +125,14 @@ async def process_class_details(
                         continue
                     restriction_name = restriction_match.group(1).strip()
                     restriction_code = restriction_match.group(2).strip()
+                    if (
+                        restriction_name in restriction_name_code_map
+                        and restriction_name_code_map[restriction_name]
+                        != restriction_code
+                    ):
+                        logger.warning(
+                            f"Conflicting restriction codes for {restriction_name} in term {term}: {restriction_name_code_map[restriction_name]} vs. {restriction_code}"
+                        )
                     restriction_name_code_map[restriction_name] = restriction_code
 
         # Example course code: CSCI 1100
@@ -178,6 +204,10 @@ async def get_course_data(
     """
     Gets all course data for a given term and subject.
 
+    Accepts optional sets and maps to populate with known RCSIDs, attribute names to codes,
+    restriction names to codes, and subject names to codes. These would be used for
+    post-processing and codification of the scraped data.
+
     This function spawns its own client session to avoid session state conflicts with
     other subjects that may be processing concurrently. Optionally accepts a semaphore
     to limit the number of concurrent sessions between multiple calls to this function,
@@ -237,6 +267,10 @@ async def get_term_course_data(
     """
     Gets all course data for a given term, which includes all subjects in the term.
 
+    Accepts optional sets and maps to populate with known RCSIDs, attribute names to codes,
+    restriction names to codes, and subject names to codes. These would be used for
+    post-processing and codification of the scraped data.
+
     This function spawns a client session for each subject to be processed in the term.
     A semaphore is used to limit the number of concurrent sessions, and an additional
     limit is placed on the number of simultaneous connections a session can make to the
@@ -246,9 +280,18 @@ async def get_term_course_data(
     """
     async with aiohttp.ClientSession() as session:
         subjects = await get_term_subjects(session, term)
-    # Add subject name to code mappings
-    for subject in subjects:
-        subject_name_code_map[subject["description"]] = subject["code"]
+
+    # Build subject name to code map
+    if subject_name_code_map is not None:
+        for subject in subjects:
+            if (
+                subject["description"] in subject_name_code_map
+                and subject_name_code_map[subject["description"]] != subject["code"]
+            ):
+                logger.warning(
+                    f"Conflicting subject codes for {subject['description']} in term {term}: {subject_name_code_map[subject['description']]} vs. {subject['code']}"
+                )
+            subject_name_code_map[subject["description"]] = subject["code"]
     logger.info(f"Processing {len(subjects)} subjects for term: {term}")
 
     # Stores all course data for the term
@@ -314,7 +357,8 @@ async def main(
 
     Spawns multiple client sessions to process subjects in parallel, which can optionally
     be limited by a semaphore. An additional limit can be placed on the number of
-    simultaneous connections a session can make to the SIS server.
+    simultaneous connections a session can make to the SIS server, as well as a timeout
+    for all requests made by a session.
 
     Returns True on success or False on any unhandled failure.
     """
@@ -337,12 +381,51 @@ async def main(
     if seasons is None:
         seasons = ["spring", "summer", "fall"]
 
+    # Create name to code maps for codifying scraped data in post-processing
     subject_name_code_map = {}
     known_rcsid_set = set()
     restriction_name_code_map = {}
     attribute_name_code_map = {}
 
     try:
+        # Load code maps for codifying scraped data in post-processing
+        logger.info(
+            f"Attempting to load existing subject code mappings from {_CODE_MAPPINGS_DIR}"
+        )
+        if _CODE_MAPPINGS_DIR.exists():
+            with _SUBJ_NAME_CODE_MAP_PATH.open("r") as f:
+                subject_name_code_map = json.load(f)
+            logger.info(f"  Loaded {len(subject_name_code_map)} subject code mappings")
+
+        logger.info(
+            f"Attempting to load existing known instructor RCSIDs from {_CODE_MAPPINGS_DIR}"
+        )
+        if _KNOWN_INSTRUCTOR_RCSIDS_PATH.exists():
+            with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("r") as f:
+                known_rcsid_list = json.load(f)
+                known_rcsid_set = set(known_rcsid_list)
+            logger.info(f"  Loaded {len(known_rcsid_set)} known instructor RCSIDs")
+
+        logger.info(
+            f"Attempting to load existing restriction code mappings from {_CODE_MAPPINGS_DIR}"
+        )
+        if _RESTRICTION_NAME_CODE_MAP_PATH.exists():
+            with _RESTRICTION_NAME_CODE_MAP_PATH.open("r") as f:
+                restriction_name_code_map = json.load(f)
+            logger.info(
+                f"  Loaded {len(restriction_name_code_map)} restriction code mappings"
+            )
+
+        logger.info(
+            f"Attempting to load existing attribute code mappings from {_CODE_MAPPINGS_DIR}"
+        )
+        if _ATTRIBUTE_NAME_CODE_MAP_PATH.exists():
+            with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("r") as f:
+                attribute_name_code_map = json.load(f)
+            logger.info(
+                f"  Loaded {len(attribute_name_code_map)} attribute code mappings"
+            )
+
         # Limit concurrent client sessions and simultaneous connections
         semaphore = asyncio.Semaphore(semaphore_val)
 
@@ -375,6 +458,32 @@ async def main(
                             timeout=timeout,
                         )
                     )
+
+        _CODE_MAPPINGS_DIR.mkdir(parents=True, exist_ok=True)
+
+        logger.info(
+            f"Writing {len(subject_name_code_map)} subject code mappings to {_SUBJ_NAME_CODE_MAP_PATH}"
+        )
+        with _SUBJ_NAME_CODE_MAP_PATH.open("w") as f:
+            json.dump(subject_name_code_map, f, indent=4, ensure_ascii=False)
+
+        logger.info(
+            f"Writing {len(known_rcsid_set)} known instructor RCSIDs to {_KNOWN_INSTRUCTOR_RCSIDS_PATH}"
+        )
+        with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("w") as f:
+            json.dump(sorted(list(known_rcsid_set)), f, indent=4, ensure_ascii=False)
+
+        logger.info(
+            f"Writing {len(restriction_name_code_map)} restriction code mappings to {_RESTRICTION_NAME_CODE_MAP_PATH}"
+        )
+        with _RESTRICTION_NAME_CODE_MAP_PATH.open("w") as f:
+            json.dump(restriction_name_code_map, f, indent=4, ensure_ascii=False)
+
+        logger.info(
+            f"Writing {len(attribute_name_code_map)} attribute code mappings to {_ATTRIBUTE_NAME_CODE_MAP_PATH}"
+        )
+        with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("w") as f:
+            json.dump(attribute_name_code_map, f, indent=4, ensure_ascii=False)
 
     except Exception as e:
         logger.error(f"Error in main: {e}")

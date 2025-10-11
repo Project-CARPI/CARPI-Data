@@ -1,0 +1,14 @@
+{
+    "Introductory Level Course": "FRSH",
+    "Writing Intensive": "WRIT",
+    "Communication Intensive": "COMM",
+    "Culminating Exp/Capstone": "CULM",
+    "PDII Option for Engr Majors": "PDII",
+    "HASS Inquiry": "HINQ",
+    "Extended term Study Abroad": "INTL",
+    "Data Intensive I": "DI1",
+    "Hybrid:Online/In-Person Course": "HYBR",
+    "Online Course": "ONLI",
+    "In-Person Course": "INPE",
+    "Data Intensive II": "DI2"
+}
