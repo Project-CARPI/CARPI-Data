@@ -472,6 +472,10 @@ async def main(
                     )
 
         _CODE_MAPPINGS_DIR.mkdir(parents=True, exist_ok=True)
+        # Ensure code maps are sorted by key before writing
+        subject_name_code_map = dict(sorted(subject_name_code_map.items()))
+        restriction_name_code_map = dict(sorted(restriction_name_code_map.items()))
+        attribute_name_code_map = dict(sorted(attribute_name_code_map.items()))
 
         logger.info(
             f"Writing {len(subject_name_code_map)} subject code mappings to {_SUBJ_NAME_CODE_MAP_PATH}"
