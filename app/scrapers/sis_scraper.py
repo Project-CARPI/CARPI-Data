@@ -93,6 +93,8 @@ async def process_class_details(
         crosslists_data = crosslists_task.result()
 
         # Build attribute name to code map
+        # Attributes are known to be in the format "Attribute Name  CODE"
+        # Note the double space between name and code
         if attribute_name_code_map is not None:
             for attribute in attributes_data:
                 attribute_split = attribute.split()
@@ -113,6 +115,8 @@ async def process_class_details(
                 attribute_name_code_map[attribute_name] = attribute_code
 
         # Build restriction name to code map
+        # Restrictions are known to be in the format "Restriction Name (CODE)"
+        # Note the parentheses around the code
         if restriction_name_code_map is not None:
             restriction_pattern = r"(.*)\((.*)\)"
             for restriction_type in restrictions_data:

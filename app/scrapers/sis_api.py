@@ -382,6 +382,7 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
             key = f"not_{key_base}" if must_or_cannot == "Cannot" else key_base
             restriction_list = restrictions_data[key]
         i += 1
+        next_content_string = ""
         while i < len(restrictions_content):
             next_content = restrictions_content[i]
             if next_content.string is None:
@@ -390,13 +391,27 @@ async def get_class_restrictions(session: aiohttp.ClientSession, term: str, crn:
                 )
                 i += 1
                 continue
-            next_content_string = next_content.string.strip()
+            # SIS separates one restriction item into multiple <span> tags if it contains
+            # commas, so a restriction item is only complete when parentheses are closed.
+            #
+            # For example, a restriction item "Communication, Media, & Design (COMD)"
+            # would be split into three <span> tags:
+            #
+            # <span>Communication</span>
+            # <span>Media</span>
+            # <span> & Design (COMD)</span>
+            if next_content_string == "":
+                next_content_string = next_content.string.lstrip()
+            else:
+                next_content_string += f",{next_content.string}"
             # Stop if another restriction header is encountered
             if re.match(restriction_header_pattern, next_content_string) or re.match(
                 special_approvals_pattern, next_content_string
             ):
                 break
-            restriction_list.append(next_content_string)
+            if re.match(r".*\(.*\)", next_content_string):
+                restriction_list.append(next_content_string.strip())
+                next_content_string = ""
             i += 1
     return restrictions_data
 
