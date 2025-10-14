@@ -1,15 +1,13 @@
 import asyncio
+import datetime as dt
 import json
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import aiohttp
-
-from app import logger
-
-from .sis_api import *
+import sis_scraper_logging
+from sis_api import *
 
 _OUTPUT_DATA_DIR = Path(__file__).parent / "scraper_data"
 _CODE_MAPPINGS_DIR = Path(__file__).parent / "code_mappings"
@@ -99,7 +97,7 @@ async def process_class_details(
             for attribute in attributes_data:
                 attribute_split = attribute.split()
                 if len(attribute_split) < 2:
-                    logger.warning(
+                    logging.warning(
                         f"Unexpected attribute format for CRN {crn} in term {term}: {attribute}"
                     )
                     continue
@@ -109,7 +107,7 @@ async def process_class_details(
                     attribute_name in attribute_name_code_map
                     and attribute_name_code_map[attribute_name] != attribute_code
                 ):
-                    logger.warning(
+                    logging.warning(
                         f"Conflicting attribute codes for {attribute_name} in term {term}: {attribute_name_code_map[attribute_name]} vs. {attribute_code}"
                     )
                 attribute_name_code_map[attribute_name] = attribute_code
@@ -123,7 +121,7 @@ async def process_class_details(
                 for restriction in restrictions_data[restriction_type]:
                     restriction_match = re.match(restriction_pattern, restriction)
                     if restriction_match is None or len(restriction_match.groups()) < 2:
-                        logger.warning(
+                        logging.warning(
                             f"Unexpected restriction format for CRN {crn} in term {term}: {restriction}"
                         )
                         continue
@@ -134,7 +132,7 @@ async def process_class_details(
                         and restriction_name_code_map[restriction_name]
                         != restriction_code
                     ):
-                        logger.warning(
+                        logging.warning(
                             f"Conflicting restriction codes for {restriction_name} in term {term}: {restriction_name_code_map[restriction_name]} vs. {restriction_code}"
                         )
                     restriction_name_code_map[restriction_name] = restriction_code
@@ -253,7 +251,7 @@ async def get_course_data(
                 # Return data sorted by course code
                 return dict(sorted(course_data.items()))
             except aiohttp.ClientError as e:
-                logger.error(f"Error processing subject {subject} in term {term}: {e}")
+                logging.error(f"Error processing subject {subject} in term {term}: {e}")
                 return {}
 
 
@@ -292,11 +290,11 @@ async def get_term_course_data(
                 subject["description"] in subject_name_code_map
                 and subject_name_code_map[subject["description"]] != subject["code"]
             ):
-                logger.warning(
+                logging.warning(
                     f"Conflicting subject codes for {subject['description']} in term {term}: {subject_name_code_map[subject['description']]} vs. {subject['code']}"
                 )
             subject_name_code_map[subject["description"]] = subject["code"]
-    logger.info(f"Processing {len(subjects)} subjects for term: {term}")
+    logging.info(f"Processing {len(subjects)} subjects for term: {term}")
 
     # Stores all course data for the term
     all_course_data = {}
@@ -340,14 +338,14 @@ async def get_term_course_data(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Writing data to {output_path}")
+    logging.info(f"Writing data to {output_path}")
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(all_course_data, f, indent=4, ensure_ascii=False)
 
 
 async def main(
     start_year: int = 1998,
-    end_year: int = datetime.now().year,
+    end_year: int = dt.datetime.now().year,
     seasons: list[str] = None,
     semaphore_val: int = 10,
     limit_per_host: int = 5,
@@ -376,7 +374,7 @@ async def main(
 
     global _IS_RUNNING
     if _IS_RUNNING:
-        logger.warning("Scraper run requested but scraper is already running")
+        logging.warning("Scraper run requested but scraper is already running")
         return False
     _IS_RUNNING = True
 
@@ -393,61 +391,61 @@ async def main(
 
     try:
         # Load code maps for codifying scraped data in post-processing
-        logger.info(
+        logging.info(
             f"Attempting to load existing subject code mappings from {_SUBJ_NAME_CODE_MAP_PATH}"
         )
         if _SUBJ_NAME_CODE_MAP_PATH.exists():
             with _SUBJ_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
                 subject_name_code_map = json.load(f)
-            logger.info(f"  Loaded {len(subject_name_code_map)} subject code mappings")
+            logging.info(f"  Loaded {len(subject_name_code_map)} subject code mappings")
         else:
-            logger.info("  No existing subject code mappings found")
+            logging.info("  No existing subject code mappings found")
 
-        logger.info(
+        logging.info(
             f"Attempting to load existing known instructor RCSIDs from {_KNOWN_INSTRUCTOR_RCSIDS_PATH}"
         )
         if _KNOWN_INSTRUCTOR_RCSIDS_PATH.exists():
             with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("r", encoding="utf-8") as f:
                 known_rcsid_list = json.load(f)
                 known_rcsid_set = set(known_rcsid_list)
-            logger.info(f"  Loaded {len(known_rcsid_set)} known instructor RCSIDs")
+            logging.info(f"  Loaded {len(known_rcsid_set)} known instructor RCSIDs")
         else:
-            logger.info("  No existing known instructor RCSIDs found")
+            logging.info("  No existing known instructor RCSIDs found")
 
-        logger.info(
+        logging.info(
             f"Attempting to load existing restriction code mappings from {_RESTRICTION_NAME_CODE_MAP_PATH}"
         )
         if _RESTRICTION_NAME_CODE_MAP_PATH.exists():
             with _RESTRICTION_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
                 restriction_name_code_map = json.load(f)
-            logger.info(
+            logging.info(
                 f"  Loaded {len(restriction_name_code_map)} restriction code mappings"
             )
         else:
-            logger.info("  No existing restriction code mappings found")
+            logging.info("  No existing restriction code mappings found")
 
-        logger.info(
+        logging.info(
             f"Attempting to load existing attribute code mappings from {_ATTRIBUTE_NAME_CODE_MAP_PATH}"
         )
         if _ATTRIBUTE_NAME_CODE_MAP_PATH.exists():
             with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("r", encoding="utf-8") as f:
                 attribute_name_code_map = json.load(f)
-            logger.info(
+            logging.info(
                 f"  Loaded {len(attribute_name_code_map)} attribute code mappings"
             )
         else:
-            logger.info("  No existing attribute code mappings found")
+            logging.info("  No existing attribute code mappings found")
 
         # Limit concurrent client sessions and simultaneous connections
         semaphore = asyncio.Semaphore(semaphore_val)
 
-        logger.info("Starting SIS scraper with settings:")
-        logger.info(f"  Years: {start_year} - {end_year}")
-        logger.info(
+        logging.info("Starting SIS scraper with settings:")
+        logging.info(f"  Years: {start_year} - {end_year}")
+        logging.info(
             f"  Seasons: {', '.join(season.capitalize() for season in seasons)}"
         )
-        logger.info(f"  Max concurrent sessions: {semaphore._value}")
-        logger.info(f"  Max concurrent connections per session: {limit_per_host}")
+        logging.info(f"  Max concurrent sessions: {semaphore._value}")
+        logging.info(f"  Max concurrent connections per session: {limit_per_host}")
 
         # Process terms in parallel
         async with asyncio.TaskGroup() as tg:
@@ -477,32 +475,32 @@ async def main(
         restriction_name_code_map = dict(sorted(restriction_name_code_map.items()))
         attribute_name_code_map = dict(sorted(attribute_name_code_map.items()))
 
-        logger.info(
+        logging.info(
             f"Writing {len(subject_name_code_map)} subject code mappings to {_SUBJ_NAME_CODE_MAP_PATH}"
         )
         with _SUBJ_NAME_CODE_MAP_PATH.open("w", encoding="utf-8") as f:
             json.dump(subject_name_code_map, f, indent=4, ensure_ascii=False)
 
-        logger.info(
+        logging.info(
             f"Writing {len(known_rcsid_set)} known instructor RCSIDs to {_KNOWN_INSTRUCTOR_RCSIDS_PATH}"
         )
         with _KNOWN_INSTRUCTOR_RCSIDS_PATH.open("w", encoding="utf-8") as f:
             json.dump(sorted(list(known_rcsid_set)), f, indent=4, ensure_ascii=False)
 
-        logger.info(
+        logging.info(
             f"Writing {len(restriction_name_code_map)} restriction code mappings to {_RESTRICTION_NAME_CODE_MAP_PATH}"
         )
         with _RESTRICTION_NAME_CODE_MAP_PATH.open("w", encoding="utf-8") as f:
             json.dump(restriction_name_code_map, f, indent=4, ensure_ascii=False)
 
-        logger.info(
+        logging.info(
             f"Writing {len(attribute_name_code_map)} attribute code mappings to {_ATTRIBUTE_NAME_CODE_MAP_PATH}"
         )
         with _ATTRIBUTE_NAME_CODE_MAP_PATH.open("w", encoding="utf-8") as f:
             json.dump(attribute_name_code_map, f, indent=4, ensure_ascii=False)
 
     except Exception as e:
-        logger.error(f"Error in main: {e}")
+        logging.error(f"Error in main: {e}")
         import traceback
 
         traceback.print_exc()
@@ -510,14 +508,15 @@ async def main(
         return False
 
     end_time = time.time()
-    logger.info("SIS scraper completed")
-    logger.info(f"  Time elapsed: {end_time - start_time:.2f} seconds")
+    logging.info("SIS scraper completed")
+    logging.info(f"  Time elapsed: {end_time - start_time:.2f} seconds")
 
     _IS_RUNNING = False
     return True
 
 
 if __name__ == "__main__":
+    sis_scraper_logging.logging_init(log_level=logging.INFO)
     start_year = 2025
     end_year = 2025
     asyncio.run(main(start_year, end_year))

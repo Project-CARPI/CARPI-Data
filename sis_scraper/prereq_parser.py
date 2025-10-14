@@ -1,6 +1,5 @@
+import logging
 import re
-
-from app import logger
 
 
 class PrereqLevel:
@@ -350,7 +349,7 @@ def parse_prereq(term: str, crn: str, prereq_string: str) -> dict:
     try:
         parsed, values = parse_parentheses(prereq_string)
     except ParenthesisBalanceError as e:
-        logger.error(f"Error parsing prerequisites for CRN {crn} in term {term} - {e}")
+        logging.error(f"Error parsing prerequisites for CRN {crn} in term {term} - {e}")
         return {}
     level = PrereqLevel(parsed, values)
     remove_prereq_overrides(level)
