@@ -1,8 +1,13 @@
+import asyncio
 import datetime as dt
 import logging
 import os
 import sys
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+import sis_scraper
 
 
 class ColoredFormatter(logging.Formatter):
@@ -33,11 +38,16 @@ class ColoredFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-def logging_init(log_level: int = logging.INFO) -> None:
+def logging_init(logs_dir: Path | str, log_level: int = logging.INFO) -> None:
     """
     Initializes logging settings once on startup; these settings determine the behavior
     of all logging calls within this program.
     """
+    if logs_dir is None:
+        raise ValueError("logs_dir must be specified")
+    if isinstance(logs_dir, str):
+        logs_dir = Path(logs_dir)
+
     # Logging format config
     formatter_config = {
         "fmt": "[%(asctime)s %(levelname)s] %(message)s",
@@ -57,7 +67,6 @@ def logging_init(log_level: int = logging.INFO) -> None:
     root_logger.addHandler(console_handler)
 
     # File logging
-    logs_dir = Path(__file__).parent.with_name("logs").resolve()
     if not logs_dir.exists():
         logs_dir.mkdir()
         logging.info("No logs directory detected, creating one for you")
@@ -74,3 +83,44 @@ def logging_init(log_level: int = logging.INFO) -> None:
     # logging because colors would just render as text.
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python -m sis_scraper <start_year> <end_year>")
+        sys.exit(1)
+    start_year = int(sys.argv[1])
+    end_year = int(sys.argv[2])
+
+    # Load environment variables from .env file if it exists
+    load_dotenv()
+
+    logs_dir = Path(__file__).parent / os.getenv("SCRAPER_LOGS_DIR")
+    output_data_dir = Path(__file__).parent / os.getenv("SCRAPER_OUTPUT_DATA_DIR")
+    code_mappings_dir = Path(__file__).parent / os.getenv("SCRAPER_CODE_MAPPINGS_DIR")
+
+    subject_name_code_map_path = code_mappings_dir / os.getenv(
+        "SUBJECT_NAME_CODE_MAP_FILENAME"
+    )
+    known_instructor_rcsids_path = code_mappings_dir / os.getenv(
+        "KNOWN_INSTRUCTOR_RCSIDS_FILENAME"
+    )
+    restriction_name_code_map_path = code_mappings_dir / os.getenv(
+        "RESTRICTION_NAME_CODE_MAP_FILENAME"
+    )
+    attribute_name_code_map_path = code_mappings_dir / os.getenv(
+        "ATTRIBUTE_NAME_CODE_MAP_FILENAME"
+    )
+
+    logging_init(logs_dir, log_level=logging.INFO)
+    asyncio.run(
+        sis_scraper.main(
+            output_data_dir=output_data_dir,
+            start_year=start_year,
+            end_year=end_year,
+            subject_name_code_map_path=subject_name_code_map_path,
+            known_instructor_rcsids_path=known_instructor_rcsids_path,
+            restriction_name_code_map_path=restriction_name_code_map_path,
+            attribute_name_code_map_path=attribute_name_code_map_path,
+        )
+    )

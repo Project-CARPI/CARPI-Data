@@ -8,6 +8,7 @@ html5lib==1.1
 idna==3.11
 multidict==6.7.0
 propcache==0.4.1
+python-dotenv==1.1.1
 six==1.17.0
 soupsieve==2.8
 typing_extensions==4.15.0
