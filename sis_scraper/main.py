@@ -95,22 +95,34 @@ if __name__ == "__main__":
     # Load environment variables from .env file if it exists
     load_dotenv()
 
-    logs_dir = Path(__file__).parent / os.getenv("SCRAPER_LOGS_DIR")
-    output_data_dir = Path(__file__).parent / os.getenv("SCRAPER_OUTPUT_DATA_DIR")
-    code_mappings_dir = Path(__file__).parent / os.getenv("SCRAPER_CODE_MAPPINGS_DIR")
+    try:
+        logs_dir = Path(__file__).parent / os.getenv("SCRAPER_LOGS_DIR")
+        output_data_dir = Path(__file__).parent / os.getenv("SCRAPER_OUTPUT_DATA_DIR")
+        code_mappings_dir = Path(__file__).parent / os.getenv(
+            "SCRAPER_CODE_MAPPINGS_DIR"
+        )
 
-    subject_name_code_map_path = code_mappings_dir / os.getenv(
-        "SUBJECT_NAME_CODE_MAP_FILENAME"
-    )
-    known_instructor_rcsids_path = code_mappings_dir / os.getenv(
-        "KNOWN_INSTRUCTOR_RCSIDS_FILENAME"
-    )
-    restriction_name_code_map_path = code_mappings_dir / os.getenv(
-        "RESTRICTION_NAME_CODE_MAP_FILENAME"
-    )
-    attribute_name_code_map_path = code_mappings_dir / os.getenv(
-        "ATTRIBUTE_NAME_CODE_MAP_FILENAME"
-    )
+        subject_name_code_map_path = code_mappings_dir / os.getenv(
+            "SUBJECT_NAME_CODE_MAP_FILENAME"
+        )
+        known_instructor_rcsids_path = code_mappings_dir / os.getenv(
+            "KNOWN_INSTRUCTOR_RCSIDS_FILENAME"
+        )
+        restriction_name_code_map_path = code_mappings_dir / os.getenv(
+            "RESTRICTION_NAME_CODE_MAP_FILENAME"
+        )
+        attribute_name_code_map_path = code_mappings_dir / os.getenv(
+            "ATTRIBUTE_NAME_CODE_MAP_FILENAME"
+        )
+    except TypeError as e:
+        print(
+            "ERROR: One or more required environment variables are not set."
+            " Ensure that an .env file exists with all required variables."
+        )
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
 
     logging_init(logs_dir, log_level=logging.INFO)
     asyncio.run(
