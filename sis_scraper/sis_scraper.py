@@ -15,14 +15,6 @@ _SUBJ_NAME_CODE_MAP_PATH = _CODE_MAPPINGS_DIR / "subject_name_code_map.json"
 _KNOWN_INSTRUCTOR_RCSIDS_PATH = _CODE_MAPPINGS_DIR / "known_instructor_rcsids.json"
 _RESTRICTION_NAME_CODE_MAP_PATH = _CODE_MAPPINGS_DIR / "restriction_name_code_map.json"
 _ATTRIBUTE_NAME_CODE_MAP_PATH = _CODE_MAPPINGS_DIR / "attribute_name_code_map.json"
-_IS_RUNNING = False
-
-
-def is_running() -> bool:
-    """
-    Returns whether the scraper is currently running.
-    """
-    return _IS_RUNNING
 
 
 def get_term_code(year: int, season: str) -> str:
@@ -371,12 +363,6 @@ async def main(
     #
     # The term and subject search state on the SIS server must be reset before each attempt
     # to fetch classes from a term and subject.
-
-    global _IS_RUNNING
-    if _IS_RUNNING:
-        logging.warning("Scraper run requested but scraper is already running")
-        return False
-    _IS_RUNNING = True
 
     start_time = time.time()
 
