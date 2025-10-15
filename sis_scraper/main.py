@@ -69,7 +69,7 @@ def logging_init(logs_dir: Path | str, log_level: int = logging.INFO) -> None:
     # File logging
     if not logs_dir.exists():
         logs_dir.mkdir()
-        logging.info("No logs directory detected, creating one for you")
+        logging.info(f"No logs directory detected, creating one at {logs_dir}")
     for log in logs_dir.iterdir():
         create_time = dt.datetime.fromtimestamp(os.path.getctime(log))
         if create_time < dt.datetime.now() - dt.timedelta(days=5):
@@ -101,19 +101,6 @@ if __name__ == "__main__":
         code_mappings_dir = Path(__file__).parent / os.getenv(
             "SCRAPER_CODE_MAPPINGS_DIR"
         )
-
-        subject_name_code_map_path = code_mappings_dir / os.getenv(
-            "SUBJECT_NAME_CODE_MAP_FILENAME"
-        )
-        known_instructor_rcsids_path = code_mappings_dir / os.getenv(
-            "KNOWN_INSTRUCTOR_RCSIDS_FILENAME"
-        )
-        restriction_name_code_map_path = code_mappings_dir / os.getenv(
-            "RESTRICTION_NAME_CODE_MAP_FILENAME"
-        )
-        attribute_name_code_map_path = code_mappings_dir / os.getenv(
-            "ATTRIBUTE_NAME_CODE_MAP_FILENAME"
-        )
     except TypeError as e:
         print(
             "ERROR: One or more required environment variables are not set."
@@ -130,9 +117,6 @@ if __name__ == "__main__":
             output_data_dir=output_data_dir,
             start_year=start_year,
             end_year=end_year,
-            subject_name_code_map_path=subject_name_code_map_path,
-            known_instructor_rcsids_path=known_instructor_rcsids_path,
-            restriction_name_code_map_path=restriction_name_code_map_path,
-            attribute_name_code_map_path=attribute_name_code_map_path,
+            code_mappings_dir=code_mappings_dir,
         )
     )
