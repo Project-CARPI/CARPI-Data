@@ -63,9 +63,17 @@ class PrereqLevel:
         }
 
 
-class ParenthesisBalanceError(Exception):
+class LeftParenthesisBalanceError(Exception):
     """
-    A simple exception to indicate unbalanced parentheses in the prerequisite string.
+    An exception indicating there is an unclosed opening parenthesis "(".
+    """
+
+    pass
+
+
+class RightParenthesisBalanceError(Exception):
+    """
+    An exception indicating there is an early closing parenthesis ")".
     """
 
     pass
@@ -100,7 +108,7 @@ def parse_parentheses(p_string: str) -> tuple[str, list[str | PrereqLevel]]:
                 current = ""
                 parsed += char
             else:
-                raise ParenthesisBalanceError(f"Unbalanced parentheses: Early ')'")
+                raise RightParenthesisBalanceError(f"Unbalanced parentheses: Early ')'")
             if len(stack) > 0:
                 stack.pop()
         elif len(stack) > 0:
@@ -118,7 +126,7 @@ def parse_parentheses(p_string: str) -> tuple[str, list[str | PrereqLevel]]:
             new_c = PrereqLevel(inner_parsed, inner_values)
             values[values.index(val)] = new_c
     if len(stack) > 0:
-        raise ParenthesisBalanceError(f"Unbalanced parentheses: Extra '('")
+        raise LeftParenthesisBalanceError(f"Unbalanced parentheses: Extra '('")
     return parsed, values
 
 
@@ -346,11 +354,25 @@ def parse_prereq(term: str, crn: str, prereq_string: str) -> dict:
     """
     if prereq_string == "":
         return {}
-    try:
-        parsed, values = parse_parentheses(prereq_string)
-    except ParenthesisBalanceError as e:
-        logging.error(f"Error parsing prerequisites for CRN {crn} in term {term} - {e}")
-        return {}
+    paren_balanced = False
+    parsed = ""
+    values = []
+    while not paren_balanced:
+        try:
+            paren_balanced = True
+            parsed, values = parse_parentheses(prereq_string)
+        except RightParenthesisBalanceError as e:
+            logger.warning(
+                f"Error parsing prerequisites for CRN {crn} in term {term} - {e}"
+            )
+            paren_balanced = False
+            prereq_string = "(" + prereq_string
+        except LeftParenthesisBalanceError as e:
+            logger.warning(
+                f"Error parsing prerequisites for CRN {crn} in term {term} - {e}"
+            )
+            paren_balanced = False
+            prereq_string = prereq_string + ")"
     level = PrereqLevel(parsed, values)
     remove_prereq_overrides(level)
     collapse_single_course_levels(level)
