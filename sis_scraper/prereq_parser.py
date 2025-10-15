@@ -362,13 +362,13 @@ def parse_prereq(term: str, crn: str, prereq_string: str) -> dict:
             paren_balanced = True
             parsed, values = parse_parentheses(prereq_string)
         except RightParenthesisBalanceError as e:
-            logger.warning(
+            logging.warning(
                 f"Error parsing prerequisites for CRN {crn} in term {term} - {e}"
             )
             paren_balanced = False
             prereq_string = "(" + prereq_string
         except LeftParenthesisBalanceError as e:
-            logger.warning(
+            logging.warning(
                 f"Error parsing prerequisites for CRN {crn} in term {term} - {e}"
             )
             paren_balanced = False
