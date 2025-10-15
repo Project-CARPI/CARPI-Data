@@ -351,15 +351,38 @@ async def main(
     """
     Runs the SIS scraper for the specified range of years and seasons.
 
-    Seasons can be any combination of "spring", "summer", and "fall". If not specified,
-    all three seasons will be processed by default.
+    Spawns multiple client sessions to process subjects in parallel, with each session
+    responsible for processing one subject.
 
-    Spawns multiple client sessions to process subjects in parallel, which can optionally
-    be limited by a semaphore. An additional limit can be placed on the number of
-    simultaneous connections a session can make to the SIS server, as well as a timeout
-    for all requests made by a session.
+    Course data including restrictions, attributes, instructor names, and subject names
+    are codified using name-to-code maps and sets that may optionally be provided as JSON
+    file paths.
+    - If a path is not provided, the corresponding map/set will be constructed and
+    stored only in memory during scraping.
+    - If a path is provided but doesn't exist, the corresponding map/set will be
+    constructed and written to the path after scraping.
+    - If a path is provided and does exist, the corresponding map/set will be loaded from
+    the path before scraping and updated after scraping.
 
-    Returns True on success or False on any unhandled failure.
+    Examples of data that are codified include:
+    - "Communication Intensive (COMM)" -> "COMM"
+    - "Computer Science" -> "CSCI"
+    - "Graduate" -> "GR"
+    - "Jane, Mary" -> "janem"
+
+    @param output_data_dir: Directory to write term course data JSON files to.
+    @param start_year: Starting year (inclusive) to scrape data for. Defaults to 1998.
+    @param end_year: Ending year (inclusive) to scrape data for. Defaults to current year.
+    @param seasons: List of academic seasons to scrape data for. Can be any combination of
+        "spring", "summer", and "fall". If not specified, all three seasons will be processed.
+    @param subject_name_code_map_path: Path to JSON file to load/save subject name-to-code map.
+    @param known_instructor_rcsids_path: Path to JSON file to load/save known instructor RCSIDs.
+    @param restriction_name_code_map_path: Path to JSON file to load/save restriction name-to-code map.
+    @param attribute_name_code_map_path: Path to JSON file to load/save attribute name-to-code map.
+    @param semaphore_val: Maximum number of concurrent client sessions to spawn.
+    @param limit_per_host: Maximum number of simultaneous connections a session can make to the SIS server.
+    @param timeout: Timeout in seconds for all requests made by a session.
+    @return: True on success, False on any unhandled failure.
     """
 
     # A JSESSIONID cookie is required before accessing any course data, which can be
@@ -412,7 +435,7 @@ async def main(
     try:
         # Load code maps for codifying scraped data in post-processing
         logging.info(
-            f"Attempting to load existing subject code mappings from {subject_name_code_map_path}"
+            f"Searching for subject code mappings from {subject_name_code_map_path}"
         )
         if subject_name_code_map_path and subject_name_code_map_path.exists():
             with subject_name_code_map_path.open("r", encoding="utf-8") as f:
@@ -422,7 +445,7 @@ async def main(
             logging.info("  No existing subject code mappings found")
 
         logging.info(
-            f"Attempting to load existing known instructor RCSIDs from {known_instructor_rcsids_path}"
+            f"Searching for known instructor RCSIDs from {known_instructor_rcsids_path}"
         )
         if known_instructor_rcsids_path and known_instructor_rcsids_path.exists():
             with known_instructor_rcsids_path.open("r", encoding="utf-8") as f:
@@ -433,7 +456,7 @@ async def main(
             logging.info("  No existing known instructor RCSIDs found")
 
         logging.info(
-            f"Attempting to load existing restriction code mappings from {restriction_name_code_map_path}"
+            f"Searching for restriction code mappings from {restriction_name_code_map_path}"
         )
         if restriction_name_code_map_path and restriction_name_code_map_path.exists():
             with restriction_name_code_map_path.open("r", encoding="utf-8") as f:
@@ -445,7 +468,7 @@ async def main(
             logging.info("  No existing restriction code mappings found")
 
         logging.info(
-            f"Attempting to load existing attribute code mappings from {attribute_name_code_map_path}"
+            f"Searching for attribute code mappings from {attribute_name_code_map_path}"
         )
         if attribute_name_code_map_path and attribute_name_code_map_path.exists():
             with attribute_name_code_map_path.open("r", encoding="utf-8") as f:
@@ -494,33 +517,39 @@ async def main(
         restriction_name_code_map = dict(sorted(restriction_name_code_map.items()))
         attribute_name_code_map = dict(sorted(attribute_name_code_map.items()))
 
-        logging.info(
-            f"Writing {len(subject_name_code_map)} subject code mappings to {subject_name_code_map_path}"
-        )
-        subject_name_code_map_path.parent.mkdir(parents=True, exist_ok=True)
-        with subject_name_code_map_path.open("w", encoding="utf-8") as f:
-            json.dump(subject_name_code_map, f, indent=4, ensure_ascii=False)
+        if subject_name_code_map_path:
+            logging.info(
+                f"Writing {len(subject_name_code_map)} subject code mappings to {subject_name_code_map_path}"
+            )
+            subject_name_code_map_path.parent.mkdir(parents=True, exist_ok=True)
+            with subject_name_code_map_path.open("w", encoding="utf-8") as f:
+                json.dump(subject_name_code_map, f, indent=4, ensure_ascii=False)
 
-        logging.info(
-            f"Writing {len(known_rcsid_set)} known instructor RCSIDs to {known_instructor_rcsids_path}"
-        )
-        known_instructor_rcsids_path.parent.mkdir(parents=True, exist_ok=True)
-        with known_instructor_rcsids_path.open("w", encoding="utf-8") as f:
-            json.dump(sorted(list(known_rcsid_set)), f, indent=4, ensure_ascii=False)
+        if known_instructor_rcsids_path:
+            logging.info(
+                f"Writing {len(known_rcsid_set)} known instructor RCSIDs to {known_instructor_rcsids_path}"
+            )
+            known_instructor_rcsids_path.parent.mkdir(parents=True, exist_ok=True)
+            with known_instructor_rcsids_path.open("w", encoding="utf-8") as f:
+                json.dump(
+                    sorted(list(known_rcsid_set)), f, indent=4, ensure_ascii=False
+                )
 
-        logging.info(
-            f"Writing {len(restriction_name_code_map)} restriction code mappings to {restriction_name_code_map_path}"
-        )
-        restriction_name_code_map_path.parent.mkdir(parents=True, exist_ok=True)
-        with restriction_name_code_map_path.open("w", encoding="utf-8") as f:
-            json.dump(restriction_name_code_map, f, indent=4, ensure_ascii=False)
+        if restriction_name_code_map_path:
+            logging.info(
+                f"Writing {len(restriction_name_code_map)} restriction code mappings to {restriction_name_code_map_path}"
+            )
+            restriction_name_code_map_path.parent.mkdir(parents=True, exist_ok=True)
+            with restriction_name_code_map_path.open("w", encoding="utf-8") as f:
+                json.dump(restriction_name_code_map, f, indent=4, ensure_ascii=False)
 
-        logging.info(
-            f"Writing {len(attribute_name_code_map)} attribute code mappings to {attribute_name_code_map_path}"
-        )
-        attribute_name_code_map_path.parent.mkdir(parents=True, exist_ok=True)
-        with attribute_name_code_map_path.open("w", encoding="utf-8") as f:
-            json.dump(attribute_name_code_map, f, indent=4, ensure_ascii=False)
+        if attribute_name_code_map_path:
+            logging.info(
+                f"Writing {len(attribute_name_code_map)} attribute code mappings to {attribute_name_code_map_path}"
+            )
+            attribute_name_code_map_path.parent.mkdir(parents=True, exist_ok=True)
+            with attribute_name_code_map_path.open("w", encoding="utf-8") as f:
+                json.dump(attribute_name_code_map, f, indent=4, ensure_ascii=False)
 
     except Exception as e:
         logging.error(f"Error in main: {e}")
