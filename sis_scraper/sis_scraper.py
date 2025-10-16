@@ -24,6 +24,10 @@ from sis_api import (
 def get_term_code(year: int, season: str) -> str:
     """
     Converts a year and academic season into a term code used by SIS.
+
+    @param year: Year as an integer, e.g. 2023.
+    @param season: Academic season as a string, e.g. "Fall", "Spring", "Summer".
+    @return: Term code as a string, e.g. "202309" for Fall 2023.
     """
     if season is None:
         return ""
@@ -50,11 +54,15 @@ async def process_class_details(
     Fetches and parses all details for a given class, populating the provided course
     data dictionary or adding to existing entries as appropriate.
 
-    Accepts optional sets and maps to populate with known RCSIDs, attribute names to codes,
-    restriction names to codes, and subject names to codes. These would be used for
-    post-processing and codification of the scraped data.
-
     Takes as input class data fetched from SIS's class search endpoint.
+
+    @param session: aiohttp client session to use for requests.
+    @param course_data: Dictionary to populate with course data.
+    @param class_entry: Class data fetched from SIS's class search endpoint.
+    @param known_rcsid_set: Optional set to populate with known instructor RCSIDs.
+    @param attribute_code_name_map: Optional map to populate with attribute codes to names.
+    @param restriction_code_name_map: Optional map to populate with restriction codes to names.
+    @return: None
     """
     # Example course code: CSCI 1100
     course_code = f"{class_entry['subject']} {class_entry['courseNumber']}"
@@ -218,15 +226,8 @@ async def get_course_data(
     """
     Gets all course data for a given term and subject.
 
-    Accepts optional sets and maps to populate with known RCSIDs, attribute names to codes,
-    restriction names to codes, and subject names to codes. These would be used for
-    post-processing and codification of the scraped data.
-
     This function spawns its own client session to avoid session state conflicts with
-    other subjects that may be processing concurrently. Optionally accepts a semaphore
-    to limit the number of concurrent sessions between multiple calls to this function,
-    as well as a limit on the number of simultaneous connections a session can make to
-    the SIS server.
+    other subjects that may be processing concurrently.
 
     In the context of this scraper, a "class" refers to a section of a course, while a
     "course" refers to the overarching course that may have multiple classes.
@@ -234,6 +235,16 @@ async def get_course_data(
     The data returned from SIS is keyed by classes, not courses. This function
     manipulates and aggregates this data such that the returned structure is keyed by
     courses instead, with classes as a sub-field of each course.
+
+    @param term: Term code to fetch data for.
+    @param subject: Subject code to fetch data for.
+    @param known_rcsid_set: Optional set to populate with known instructor RCSIDs.
+    @param restriction_code_name_map: Optional map to populate with restriction codes to names.
+    @param attribute_code_name_map: Optional map to populate with attribute codes to names.
+    @param semaphore: Semaphore to limit number of concurrent sessions between multiple calls to this function.
+    @param limit_per_host: Maximum number of simultaneous connections a session can make to the SIS server.
+    @param timeout: Timeout in seconds for all requests made by a session.
+    @return: Dictionary of course data keyed by course code.
     """
     async with semaphore:
         # Limit simultaneous connections to SIS server per session
@@ -281,16 +292,19 @@ async def get_term_course_data(
     """
     Gets all course data for a given term, which includes all subjects in the term.
 
-    Accepts optional sets and maps to populate with known RCSIDs, attribute names to codes,
-    restriction names to codes, and subject names to codes. These would be used for
-    post-processing and codification of the scraped data.
-
     This function spawns a client session for each subject to be processed in the term.
-    A semaphore is used to limit the number of concurrent sessions, and an additional
-    limit is placed on the number of simultaneous connections a session can make to the
-    SIS server.
-
     Writes data as JSON after all subjects in the term have been processed.
+
+    @param term: Term code to fetch data for.
+    @param output_path: Path to write term course data JSON file to.
+    @param subject_code_name_map: Optional map to populate with subject codes to names.
+    @param known_rcsid_set: Optional set to populate with known instructor RCSIDs.
+    @param restriction_code_name_map: Optional map to populate with restriction codes to names.
+    @param attribute_code_name_map: Optional map to populate with attribute codes to names.
+    @param semaphore: Semaphore to limit number of concurrent sessions.
+    @param limit_per_host: Maximum number of simultaneous connections a session can make to the SIS server.
+    @param timeout: Timeout in seconds for all requests made by a session.
+    @return: None
     """
     async with aiohttp.ClientSession() as session:
         subjects = await get_term_subjects(session, term)
@@ -362,7 +376,8 @@ async def main(
     timeout: int = 120,
 ) -> bool:
     """
-    Runs the SIS scraper for the specified range of years and seasons.
+    Runs the SIS scraper for the specified range of years and seasons. The earliest
+    available term is Summer 1998 (199805).
 
     Spawns multiple client sessions to process subjects in parallel, with each session
     responsible for processing one subject.
