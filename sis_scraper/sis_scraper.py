@@ -465,21 +465,20 @@ async def main(
     restriction_code_name_map_path = None
     attribute_code_name_map_path = None
 
-    try:
-        if code_mappings_dir:
-            subject_code_name_map_path = (
-                code_mappings_dir / "subject_code_name_map.json"
-            )
-            instructor_rcsid_name_map_path = (
-                code_mappings_dir / "instructor_rcsid_name_map.json"
-            )
-            restriction_code_name_map_path = (
-                code_mappings_dir / "restriction_code_name_map.json"
-            )
-            attribute_code_name_map_path = (
-                code_mappings_dir / "attribute_code_name_map.json"
-            )
+    if code_mappings_dir and code_mappings_dir.exists():
 
+        subject_code_name_map_path = code_mappings_dir / "subject_code_name_map.json"
+        instructor_rcsid_name_map_path = (
+            code_mappings_dir / "instructor_rcsid_name_map.json"
+        )
+        restriction_code_name_map_path = (
+            code_mappings_dir / "restriction_code_name_map.json"
+        )
+        attribute_code_name_map_path = (
+            code_mappings_dir / "attribute_code_name_map.json"
+        )
+
+        try:
             # Load code maps for codifying scraped data in post-processing
             if subject_code_name_map_path.exists():
                 with subject_code_name_map_path.open("r", encoding="utf-8") as f:
@@ -524,18 +523,23 @@ async def main(
                 logging.info(
                     f"No existing attribute code mappings found at {attribute_code_name_map_path}"
                 )
+        except Exception as e:
+            logging.error(f"Error loading code mapping files: {e}")
+            import traceback
 
-        # Limit concurrent client sessions and simultaneous connections
-        semaphore = asyncio.Semaphore(semaphore_val)
+            traceback.print_exc()
+            return False
 
-        logging.info("Starting SIS scraper with settings:")
-        logging.info(f"  Years: {start_year} - {end_year}")
-        logging.info(
-            f"  Seasons: {', '.join(season.capitalize() for season in seasons)}"
-        )
-        logging.info(f"  Max concurrent sessions: {semaphore._value}")
-        logging.info(f"  Max concurrent connections per session: {limit_per_host}")
+    # Limit concurrent client sessions and simultaneous connections
+    semaphore = asyncio.Semaphore(semaphore_val)
 
+    logging.info("Starting SIS scraper with settings:")
+    logging.info(f"  Years: {start_year} - {end_year}")
+    logging.info(f"  Seasons: {', '.join(season.capitalize() for season in seasons)}")
+    logging.info(f"  Max concurrent sessions: {semaphore._value}")
+    logging.info(f"  Max concurrent connections per session: {limit_per_host}")
+
+    try:
         # Process terms in parallel
         async with asyncio.TaskGroup() as tg:
             for year in range(start_year, end_year + 1):
@@ -557,15 +561,22 @@ async def main(
                             timeout=timeout,
                         )
                     )
+    except Exception as e:
+        logging.error(f"Error in SIS scraper: {e}")
+        import traceback
 
+        traceback.print_exc()
+        return False
+
+    # Write code maps to JSON files if code mappings directory is provided
+    if code_mappings_dir:
         # Ensure code maps are sorted by key before writing
         instructor_rcsid_name_map = dict(sorted(instructor_rcsid_name_map.items()))
         subject_code_name_map = dict(sorted(subject_code_name_map.items()))
         restriction_code_name_map = dict(sorted(restriction_code_name_map.items()))
         attribute_code_name_map = dict(sorted(attribute_code_name_map.items()))
 
-        # Write code maps to JSON files if code mappings directory is provided
-        if code_mappings_dir:
+        try:
             code_mappings_dir.mkdir(parents=True, exist_ok=True)
 
             logging.info(
@@ -591,13 +602,12 @@ async def main(
             )
             with attribute_code_name_map_path.open("w", encoding="utf-8") as f:
                 json.dump(attribute_code_name_map, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            logging.error(f"Error writing code mapping files: {e}")
+            import traceback
 
-    except Exception as e:
-        logging.error(f"Error in main: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return False
+            traceback.print_exc()
+            return False
 
     end_time = time.time()
     logging.info("SIS scraper completed")
