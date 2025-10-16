@@ -46,7 +46,7 @@ async def process_class_details(
     session: aiohttp.ClientSession,
     course_data: dict[str, Any],
     class_entry: dict[str, Any],
-    known_rcsid_set: set[str] = None,
+    instructor_rcsid_name_map: dict[str, str] = None,
     attribute_code_name_map: dict[str, str] = None,
     restriction_code_name_map: dict[str, dict[str, str]] = None,
 ) -> None:
@@ -66,6 +66,8 @@ async def process_class_details(
     """
     # Example course code: CSCI 1100
     course_code = f"{class_entry['subject']} {class_entry['courseNumber']}"
+    term = class_entry["term"]
+    crn = class_entry["courseReferenceNumber"]
 
     # Fetch class details not included in main class details
     # Only fetch if course not already in course data
@@ -89,8 +91,6 @@ async def process_class_details(
             },
         }
 
-        term = class_entry["term"]
-        crn = class_entry["courseReferenceNumber"]
         async with asyncio.TaskGroup() as tg:
             description_task = tg.create_task(get_class_description(session, term, crn))
             attributes_task = tg.create_task(get_class_attributes(session, term, crn))
@@ -187,19 +187,23 @@ async def process_class_details(
     )
 
     course_sections = course_details["sections"]
-    # Use faculty RCS IDs instead of names
     class_faculty = class_entry["faculty"]
     class_faculty_rcsids = []
-    for faculty in class_faculty:
-        rcsid = f"Unknown RCSID ({faculty['displayName']})"
-        if "emailAddress" in faculty:
-            email_address = faculty["emailAddress"]
+    for instructor in class_faculty:
+        instructor_name = instructor["displayName"]
+        rcsid = "Unknown RCSID"
+        if "emailAddress" in instructor:
+            email_address = instructor["emailAddress"]
             if email_address is not None and email_address.endswith("@rpi.edu"):
-                rcsid = email_address.replace("@rpi.edu", "")
+                rcsid = email_address.split("@")[0].lower()
                 # Add to known RCSID set if provided
-                if known_rcsid_set is not None:
-                    known_rcsid_set.add(rcsid)
-        class_faculty_rcsids.append(rcsid)
+                if instructor_rcsid_name_map is not None:
+                    instructor_rcsid_name_map[rcsid] = instructor["displayName"]
+        else:
+            logging.warning(
+                f"Missing instructor email address field for CRN {crn} in term {term}: {instructor_name}"
+            )
+        class_faculty_rcsids.append(f"{instructor_name} ({rcsid})")
 
     course_sections.append(
         {
@@ -216,7 +220,7 @@ async def process_class_details(
 async def get_course_data(
     term: str,
     subject: str,
-    known_rcsid_set: set[str] = None,
+    instructor_rcsid_name_map: dict[str, str] = None,
     restriction_code_name_map: dict[str, dict[str, str]] = None,
     attribute_code_name_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
@@ -238,7 +242,7 @@ async def get_course_data(
 
     @param term: Term code to fetch data for.
     @param subject: Subject code to fetch data for.
-    @param known_rcsid_set: Optional set to populate with known instructor RCSIDs.
+    @param instructor_rcsid_name_map: Optional map to populate with instructor RCSIDs to names.
     @param restriction_code_name_map: Optional map to populate with restriction codes to names.
     @param attribute_code_name_map: Optional map to populate with attribute codes to names.
     @param semaphore: Semaphore to limit number of concurrent sessions between multiple calls to this function.
@@ -266,7 +270,7 @@ async def get_course_data(
                                 session,
                                 course_data,
                                 class_entry,
-                                known_rcsid_set=known_rcsid_set,
+                                instructor_rcsid_name_map=instructor_rcsid_name_map,
                                 restriction_code_name_map=restriction_code_name_map,
                                 attribute_code_name_map=attribute_code_name_map,
                             )
@@ -282,7 +286,7 @@ async def get_term_course_data(
     term: str,
     output_path: Path | str,
     subject_code_name_map: dict[str, str] = None,
-    known_rcsid_set: set[str] = None,
+    instructor_rcsid_name_map: dict[str, str] = None,
     restriction_code_name_map: dict[str, dict[str, str]] = None,
     attribute_code_name_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
@@ -298,7 +302,7 @@ async def get_term_course_data(
     @param term: Term code to fetch data for.
     @param output_path: Path to write term course data JSON file to.
     @param subject_code_name_map: Optional map to populate with subject codes to names.
-    @param known_rcsid_set: Optional set to populate with known instructor RCSIDs.
+    @param instructor_rcsid_name_map: Optional map to populate with instructor RCSIDs to names.
     @param restriction_code_name_map: Optional map to populate with restriction codes to names.
     @param attribute_code_name_map: Optional map to populate with attribute codes to names.
     @param semaphore: Semaphore to limit number of concurrent sessions.
@@ -338,7 +342,7 @@ async def get_term_course_data(
                 get_course_data(
                     term,
                     subject_code,
-                    known_rcsid_set=known_rcsid_set,
+                    instructor_rcsid_name_map=instructor_rcsid_name_map,
                     restriction_code_name_map=restriction_code_name_map,
                     attribute_code_name_map=attribute_code_name_map,
                     semaphore=semaphore,
@@ -383,16 +387,16 @@ async def main(
     responsible for processing one subject.
 
     Course data including restrictions, attributes, instructor names, and subject names
-    are codified using code-to-name maps and sets whose parent directory may be provided.
-    - If not provided, the maps/sets will be constructed and stored only in memory during
+    are codified using code-to-name maps whose parent directory may be provided.
+    - If not provided, the maps will be constructed and stored only in memory during
     scraping.
-    - If provided but doesn't exist, the maps/sets will be constructed and written to the
+    - If provided but doesn't exist, the maps will be constructed and written to the
     directory as JSON after scraping.
-    - If provided and does exist, the maps/sets will be loaded from the directory before
+    - If provided and does exist, the maps will be loaded from the directory before
     scraping and updated after scraping.
 
     Examples of data that are codified include:
-    - "Communication Intensive (COMM)" -> "COMM"
+    - "Communication Intensive" -> "COMM"
     - "Computer Science" -> "CSCI"
     - "Graduate" -> "GR"
     - "Jane, Mary" -> "janem"
@@ -444,12 +448,12 @@ async def main(
 
     # Create code to name maps for codifying scraped data in post-processing
     subject_code_name_map = {}
-    known_rcsid_set = set()
+    instructor_rcsid_name_map = {}
     restriction_code_name_map = {}
     attribute_code_name_map = {}
 
     subject_code_name_map_path = None
-    known_instructor_rcsids_path = None
+    instructor_rcsid_name_map_path = None
     restriction_code_name_map_path = None
     attribute_code_name_map_path = None
 
@@ -458,8 +462,8 @@ async def main(
             subject_code_name_map_path = (
                 code_mappings_dir / "subject_code_name_map.json"
             )
-            known_instructor_rcsids_path = (
-                code_mappings_dir / "known_instructor_rcsids.json"
+            instructor_rcsid_name_map_path = (
+                code_mappings_dir / "instructor_rcsid_name_map.json"
             )
             restriction_code_name_map_path = (
                 code_mappings_dir / "restriction_code_name_map.json"
@@ -480,16 +484,15 @@ async def main(
                     f"No existing subject code mappings found at {subject_code_name_map_path}"
                 )
 
-            if known_instructor_rcsids_path.exists():
-                with known_instructor_rcsids_path.open("r", encoding="utf-8") as f:
-                    known_rcsid_list = json.load(f)
-                    known_rcsid_set = set(known_rcsid_list)
+            if instructor_rcsid_name_map_path.exists():
+                with instructor_rcsid_name_map_path.open("r", encoding="utf-8") as f:
+                    instructor_rcsid_name_map = json.load(f)
                 logging.info(
-                    f"Loaded {len(known_rcsid_set)} known instructor RCSIDs from {known_instructor_rcsids_path}"
+                    f"Loaded {len(instructor_rcsid_name_map)} instructor RCSID mappings from {instructor_rcsid_name_map_path}"
                 )
             else:
                 logging.info(
-                    f"No existing known instructor RCSIDs found at {known_instructor_rcsids_path}"
+                    f"No existing instructor RCSID mappings found at {instructor_rcsid_name_map_path}"
                 )
 
             if restriction_code_name_map_path.exists():
@@ -538,7 +541,7 @@ async def main(
                             term,
                             output_path=output_path,
                             subject_code_name_map=subject_code_name_map,
-                            known_rcsid_set=known_rcsid_set,
+                            instructor_rcsid_name_map=instructor_rcsid_name_map,
                             restriction_code_name_map=restriction_code_name_map,
                             attribute_code_name_map=attribute_code_name_map,
                             semaphore=semaphore,
@@ -548,6 +551,7 @@ async def main(
                     )
 
         # Ensure code maps are sorted by key before writing
+        instructor_rcsid_name_map = dict(sorted(instructor_rcsid_name_map.items()))
         subject_code_name_map = dict(sorted(subject_code_name_map.items()))
         restriction_code_name_map = dict(sorted(restriction_code_name_map.items()))
         attribute_code_name_map = dict(sorted(attribute_code_name_map.items()))
@@ -563,12 +567,10 @@ async def main(
                 json.dump(subject_code_name_map, f, indent=4, ensure_ascii=False)
 
             logging.info(
-                f"Writing {len(known_rcsid_set)} known instructor RCSIDs to {known_instructor_rcsids_path}"
+                f"Writing {len(instructor_rcsid_name_map)} instructor RCSID mappings to {instructor_rcsid_name_map_path}"
             )
-            with known_instructor_rcsids_path.open("w", encoding="utf-8") as f:
-                json.dump(
-                    sorted(list(known_rcsid_set)), f, indent=4, ensure_ascii=False
-                )
+            with instructor_rcsid_name_map_path.open("w", encoding="utf-8") as f:
+                json.dump(instructor_rcsid_name_map, f, indent=4, ensure_ascii=False)
 
             logging.info(
                 f"Writing {len(restriction_code_name_map)} restriction code mappings to {restriction_code_name_map_path}"
