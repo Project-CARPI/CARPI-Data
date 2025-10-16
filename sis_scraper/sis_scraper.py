@@ -21,25 +21,31 @@ from sis_api import (
 )
 
 
-def get_term_code(year: int, season: str) -> str:
+def get_term_code(year: str | int, season: str) -> str:
     """
     Converts a year and academic season into a term code used by SIS.
 
-    @param year: Year as an integer, e.g. 2023.
+    @param year: Year as a string or integer, e.g. "2023" or 2023.
     @param season: Academic season as a string, e.g. "Fall", "Spring", "Summer".
     @return: Term code as a string, e.g. "202309" for Fall 2023.
     """
-    if season is None:
+    if year is None or season is None:
+        return ""
+    if not isinstance(season, str):
+        return ""
+    try:
+        year_int = int(year)
+        if year_int < 1000 or year_int > 9999:
+            return ""
+    except (ValueError, TypeError):
         return ""
     season_lower = season.lower().strip()
-    if season_lower == "fall":
-        return f"{year}09"
-    elif season_lower == "summer":
-        return f"{year}05"
-    elif season_lower == "spring":
-        return f"{year}01"
-    else:
-        return ""
+    season_map = {
+        "fall": f"{year_int}09",
+        "summer": f"{year_int}05",
+        "spring": f"{year_int}01",
+    }
+    return season_map.get(season_lower, "")
 
 
 async def process_class_details(
