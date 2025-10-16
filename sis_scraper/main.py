@@ -14,8 +14,8 @@ class ColoredFormatter(logging.Formatter):
     """
     Simple wrapper class that adds colors to logging.
 
-    Requires a format, and otherwise accepts any keyword arguments
-    that are accepted by logging.Formatter().
+    Requires a format, and otherwise accepts any keyword arguments that are accepted by
+    logging.Formatter().
     """
 
     def __init__(self, fmt: str, **kwargs):

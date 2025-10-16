@@ -43,8 +43,8 @@ async def process_class_details(
     course_data: dict[str, Any],
     class_entry: dict[str, Any],
     known_rcsid_set: set[str] = None,
-    attribute_name_code_map: dict[str, str] = None,
-    restriction_name_code_map: dict[str, str] = None,
+    attribute_code_name_map: dict[str, str] = None,
+    restriction_code_name_map: dict[str, dict[str, str]] = None,
 ) -> None:
     """
     Fetches and parses all details for a given class, populating the provided course
@@ -105,10 +105,10 @@ async def process_class_details(
         corequisites_data = corequisites_task.result()
         crosslists_data = crosslists_task.result()
 
-        # Build attribute name to code map
+        # Build attribute code to name map
         # Attributes are known to be in the format "Attribute Name  CODE"
         # Note the double space between name and code
-        if attribute_name_code_map is not None:
+        if attribute_code_name_map is not None:
             for attribute in attributes_data:
                 attribute_split = attribute.split()
                 if len(attribute_split) < 2:
@@ -119,20 +119,23 @@ async def process_class_details(
                 attribute_code = attribute_split[-1].strip()
                 attribute_name = " ".join(attribute_split[:-1]).strip()
                 if (
-                    attribute_name in attribute_name_code_map
-                    and attribute_name_code_map[attribute_name] != attribute_code
+                    attribute_code in attribute_code_name_map
+                    and attribute_code_name_map[attribute_code] != attribute_name
                 ):
                     logging.warning(
-                        f"Conflicting attribute codes for {attribute_name} in term {term}: {attribute_name_code_map[attribute_name]} vs. {attribute_code}"
+                        f"Conflicting attribute names for {attribute_code} in term {term}: {attribute_code_name_map[attribute_code]} vs. {attribute_name}"
                     )
-                attribute_name_code_map[attribute_name] = attribute_code
+                attribute_code_name_map[attribute_code] = attribute_name
 
-        # Build restriction name to code map
+        # Build restriction code to name map
         # Restrictions are known to be in the format "Restriction Name (CODE)"
         # Note the parentheses around the code
-        if restriction_name_code_map is not None:
+        if restriction_code_name_map is not None:
             restriction_pattern = r"(.*)\((.*)\)"
             for restriction_type in restrictions_data:
+                restriction_type = restriction_type.lower().replace("not_", "")
+                if restriction_type not in restriction_code_name_map:
+                    restriction_code_name_map[restriction_type] = {}
                 for restriction in restrictions_data[restriction_type]:
                     restriction_match = re.match(restriction_pattern, restriction)
                     if restriction_match is None or len(restriction_match.groups()) < 2:
@@ -143,14 +146,18 @@ async def process_class_details(
                     restriction_name = restriction_match.group(1).strip()
                     restriction_code = restriction_match.group(2).strip()
                     if (
-                        restriction_name in restriction_name_code_map
-                        and restriction_name_code_map[restriction_name]
-                        != restriction_code
+                        restriction_name in restriction_code_name_map[restriction_type]
+                        and restriction_code_name_map[restriction_type][
+                            restriction_code
+                        ]
+                        != restriction_name
                     ):
                         logging.warning(
-                            f"Conflicting restriction codes for {restriction_name} in term {term}: {restriction_name_code_map[restriction_name]} vs. {restriction_code}"
+                            f"Conflicting restriction names for {restriction_code} in term {term}: {restriction_code_name_map[restriction_type][restriction_code]} vs. {restriction_name}"
                         )
-                    restriction_name_code_map[restriction_name] = restriction_code
+                    restriction_code_name_map[restriction_type][
+                        restriction_code
+                    ] = restriction_name
 
         # Initialize course entry with details
         course_details = course_data[course_code]["course_detail"]
@@ -202,8 +209,8 @@ async def get_course_data(
     term: str,
     subject: str,
     known_rcsid_set: set[str] = None,
-    restriction_name_code_map: dict[str, str] = None,
-    attribute_name_code_map: dict[str, str] = None,
+    restriction_code_name_map: dict[str, dict[str, str]] = None,
+    attribute_code_name_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(1),
     limit_per_host: int = 5,
     timeout: int = 60,
@@ -249,8 +256,8 @@ async def get_course_data(
                                 course_data,
                                 class_entry,
                                 known_rcsid_set=known_rcsid_set,
-                                restriction_name_code_map=restriction_name_code_map,
-                                attribute_name_code_map=attribute_name_code_map,
+                                restriction_code_name_map=restriction_code_name_map,
+                                attribute_code_name_map=attribute_code_name_map,
                             )
                         )
                 # Return data sorted by course code
@@ -263,10 +270,10 @@ async def get_course_data(
 async def get_term_course_data(
     term: str,
     output_path: Path | str,
-    subject_name_code_map: dict[str, str] = None,
+    subject_code_name_map: dict[str, str] = None,
     known_rcsid_set: set[str] = None,
-    restriction_name_code_map: dict[str, str] = None,
-    attribute_name_code_map: dict[str, str] = None,
+    restriction_code_name_map: dict[str, dict[str, str]] = None,
+    attribute_code_name_map: dict[str, str] = None,
     semaphore: asyncio.Semaphore = asyncio.Semaphore(10),
     limit_per_host: int = 5,
     timeout: int = 60,
@@ -288,17 +295,17 @@ async def get_term_course_data(
     async with aiohttp.ClientSession() as session:
         subjects = await get_term_subjects(session, term)
 
-    # Build subject name to code map
-    if subject_name_code_map is not None:
+    # Build subject code to name map
+    if subject_code_name_map is not None:
         for subject in subjects:
             if (
-                subject["description"] in subject_name_code_map
-                and subject_name_code_map[subject["description"]] != subject["code"]
+                subject["code"] in subject_code_name_map
+                and subject_code_name_map[subject["code"]] != subject["description"]
             ):
                 logging.warning(
-                    f"Conflicting subject codes for {subject['description']} in term {term}: {subject_name_code_map[subject['description']]} vs. {subject['code']}"
+                    f"Conflicting subject names for {subject['code']} in term {term}: {subject_code_name_map[subject['code']]} vs. {subject['description']}"
                 )
-            subject_name_code_map[subject["description"]] = subject["code"]
+            subject_code_name_map[subject["code"]] = subject["description"]
     logging.info(f"Processing {len(subjects)} subjects for term: {term}")
 
     # Stores all course data for the term
@@ -318,8 +325,8 @@ async def get_term_course_data(
                     term,
                     subject_code,
                     known_rcsid_set=known_rcsid_set,
-                    restriction_name_code_map=restriction_name_code_map,
-                    attribute_name_code_map=attribute_name_code_map,
+                    restriction_code_name_map=restriction_code_name_map,
+                    attribute_code_name_map=attribute_code_name_map,
                     semaphore=semaphore,
                     limit_per_host=limit_per_host,
                     timeout=timeout,
@@ -361,7 +368,7 @@ async def main(
     responsible for processing one subject.
 
     Course data including restrictions, attributes, instructor names, and subject names
-    are codified using name-to-code maps and sets whose parent directory may be provided.
+    are codified using code-to-name maps and sets whose parent directory may be provided.
     - If not provided, the maps/sets will be constructed and stored only in memory during
     scraping.
     - If provided but doesn't exist, the maps/sets will be constructed and written to the
@@ -420,42 +427,42 @@ async def main(
     if seasons is None:
         seasons = ["spring", "summer", "fall"]
 
-    # Create name to code maps for codifying scraped data in post-processing
-    subject_name_code_map = {}
+    # Create code to name maps for codifying scraped data in post-processing
+    subject_code_name_map = {}
     known_rcsid_set = set()
-    restriction_name_code_map = {}
-    attribute_name_code_map = {}
+    restriction_code_name_map = {}
+    attribute_code_name_map = {}
 
-    subject_name_code_map_path = None
+    subject_code_name_map_path = None
     known_instructor_rcsids_path = None
-    restriction_name_code_map_path = None
-    attribute_name_code_map_path = None
+    restriction_code_name_map_path = None
+    attribute_code_name_map_path = None
 
     try:
         if code_mappings_dir:
-            subject_name_code_map_path = (
-                code_mappings_dir / "subject_name_code_map.json"
+            subject_code_name_map_path = (
+                code_mappings_dir / "subject_code_name_map.json"
             )
             known_instructor_rcsids_path = (
                 code_mappings_dir / "known_instructor_rcsids.json"
             )
-            restriction_name_code_map_path = (
-                code_mappings_dir / "restriction_name_code_map.json"
+            restriction_code_name_map_path = (
+                code_mappings_dir / "restriction_code_name_map.json"
             )
-            attribute_name_code_map_path = (
-                code_mappings_dir / "attribute_name_code_map.json"
+            attribute_code_name_map_path = (
+                code_mappings_dir / "attribute_code_name_map.json"
             )
 
             # Load code maps for codifying scraped data in post-processing
-            if subject_name_code_map_path.exists():
-                with subject_name_code_map_path.open("r", encoding="utf-8") as f:
-                    subject_name_code_map = json.load(f)
+            if subject_code_name_map_path.exists():
+                with subject_code_name_map_path.open("r", encoding="utf-8") as f:
+                    subject_code_name_map = json.load(f)
                 logging.info(
-                    f"Loaded {len(subject_name_code_map)} subject code mappings from {subject_name_code_map_path}"
+                    f"Loaded {len(subject_code_name_map)} subject code mappings from {subject_code_name_map_path}"
                 )
             else:
                 logging.info(
-                    f"No existing subject code mappings found at {subject_name_code_map_path}"
+                    f"No existing subject code mappings found at {subject_code_name_map_path}"
                 )
 
             if known_instructor_rcsids_path.exists():
@@ -470,26 +477,26 @@ async def main(
                     f"No existing known instructor RCSIDs found at {known_instructor_rcsids_path}"
                 )
 
-            if restriction_name_code_map_path.exists():
-                with restriction_name_code_map_path.open("r", encoding="utf-8") as f:
-                    restriction_name_code_map = json.load(f)
+            if restriction_code_name_map_path.exists():
+                with restriction_code_name_map_path.open("r", encoding="utf-8") as f:
+                    restriction_code_name_map = json.load(f)
                 logging.info(
-                    f"Loaded {len(restriction_name_code_map)} restriction code mappings from {restriction_name_code_map_path}"
+                    f"Loaded {len(restriction_code_name_map)} restriction code mappings from {restriction_code_name_map_path}"
                 )
             else:
                 logging.info(
-                    f"No existing restriction code mappings found at {restriction_name_code_map_path}"
+                    f"No existing restriction code mappings found at {restriction_code_name_map_path}"
                 )
 
-            if attribute_name_code_map_path.exists():
-                with attribute_name_code_map_path.open("r", encoding="utf-8") as f:
-                    attribute_name_code_map = json.load(f)
+            if attribute_code_name_map_path.exists():
+                with attribute_code_name_map_path.open("r", encoding="utf-8") as f:
+                    attribute_code_name_map = json.load(f)
                 logging.info(
-                    f"Loaded {len(attribute_name_code_map)} attribute code mappings from {attribute_name_code_map_path}"
+                    f"Loaded {len(attribute_code_name_map)} attribute code mappings from {attribute_code_name_map_path}"
                 )
             else:
                 logging.info(
-                    f"No existing attribute code mappings found at {attribute_name_code_map_path}"
+                    f"No existing attribute code mappings found at {attribute_code_name_map_path}"
                 )
 
         # Limit concurrent client sessions and simultaneous connections
@@ -515,10 +522,10 @@ async def main(
                         get_term_course_data(
                             term,
                             output_path=output_path,
-                            subject_name_code_map=subject_name_code_map,
+                            subject_code_name_map=subject_code_name_map,
                             known_rcsid_set=known_rcsid_set,
-                            restriction_name_code_map=restriction_name_code_map,
-                            attribute_name_code_map=attribute_name_code_map,
+                            restriction_code_name_map=restriction_code_name_map,
+                            attribute_code_name_map=attribute_code_name_map,
                             semaphore=semaphore,
                             limit_per_host=limit_per_host,
                             timeout=timeout,
@@ -526,18 +533,19 @@ async def main(
                     )
 
         # Ensure code maps are sorted by key before writing
-        subject_name_code_map = dict(sorted(subject_name_code_map.items()))
-        restriction_name_code_map = dict(sorted(restriction_name_code_map.items()))
-        attribute_name_code_map = dict(sorted(attribute_name_code_map.items()))
+        subject_code_name_map = dict(sorted(subject_code_name_map.items()))
+        restriction_code_name_map = dict(sorted(restriction_code_name_map.items()))
+        attribute_code_name_map = dict(sorted(attribute_code_name_map.items()))
 
+        # Write code maps to JSON files if code mappings directory is provided
         if code_mappings_dir:
             code_mappings_dir.mkdir(parents=True, exist_ok=True)
 
             logging.info(
-                f"Writing {len(subject_name_code_map)} subject code mappings to {subject_name_code_map_path}"
+                f"Writing {len(subject_code_name_map)} subject code mappings to {subject_code_name_map_path}"
             )
-            with subject_name_code_map_path.open("w", encoding="utf-8") as f:
-                json.dump(subject_name_code_map, f, indent=4, ensure_ascii=False)
+            with subject_code_name_map_path.open("w", encoding="utf-8") as f:
+                json.dump(subject_code_name_map, f, indent=4, ensure_ascii=False)
 
             logging.info(
                 f"Writing {len(known_rcsid_set)} known instructor RCSIDs to {known_instructor_rcsids_path}"
@@ -548,16 +556,16 @@ async def main(
                 )
 
             logging.info(
-                f"Writing {len(restriction_name_code_map)} restriction code mappings to {restriction_name_code_map_path}"
+                f"Writing {len(restriction_code_name_map)} restriction code mappings to {restriction_code_name_map_path}"
             )
-            with restriction_name_code_map_path.open("w", encoding="utf-8") as f:
-                json.dump(restriction_name_code_map, f, indent=4, ensure_ascii=False)
+            with restriction_code_name_map_path.open("w", encoding="utf-8") as f:
+                json.dump(restriction_code_name_map, f, indent=4, ensure_ascii=False)
 
             logging.info(
-                f"Writing {len(attribute_name_code_map)} attribute code mappings to {attribute_name_code_map_path}"
+                f"Writing {len(attribute_code_name_map)} attribute code mappings to {attribute_code_name_map_path}"
             )
-            with attribute_name_code_map_path.open("w", encoding="utf-8") as f:
-                json.dump(attribute_name_code_map, f, indent=4, ensure_ascii=False)
+            with attribute_code_name_map_path.open("w", encoding="utf-8") as f:
+                json.dump(attribute_code_name_map, f, indent=4, ensure_ascii=False)
 
     except Exception as e:
         logging.error(f"Error in main: {e}")
