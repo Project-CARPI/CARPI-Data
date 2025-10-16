@@ -153,13 +153,13 @@ async def process_class_details(
                     restriction_name_code_map[restriction_name] = restriction_code
 
         # Initialize course entry with details
-        course_entry = course_data[course_code]
-        course_entry["description"] = description_data
-        course_entry["attributes"] = attributes_data
-        course_entry["restrictions"] = restrictions_data
-        course_entry["prerequisite"] = prerequisites_data
-        course_entry["corequisite"] = corequisites_data
-        course_entry["crosslist"] = crosslists_data
+        course_details = course_data[course_code]["course_detail"]
+        course_details["description"] = description_data
+        course_details["attributes"] = attributes_data
+        course_details["restrictions"] = restrictions_data
+        course_details["prerequisite"] = prerequisites_data
+        course_details["corequisite"] = corequisites_data
+        course_details["crosslist"] = crosslists_data
 
     course_details = course_data[course_code]["course_detail"]
 
