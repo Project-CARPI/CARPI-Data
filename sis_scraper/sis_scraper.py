@@ -62,6 +62,25 @@ async def process_class_details(
     # Fetch class details not included in main class details
     # Only fetch if course not already in course data
     if course_code not in course_data:
+
+        # Initialize empty course entry
+        course_data[course_code] = {
+            "course_name": class_entry["courseTitle"],
+            "course_detail": {
+                "description": "",
+                "corequisite": [],
+                "prerequisite": [],
+                "crosslist": [],
+                "attributes": [],
+                "restrictions": [],
+                "credits": {
+                    "min": float("inf"),
+                    "max": 0,
+                },
+                "sections": [],
+            },
+        }
+
         term = class_entry["term"]
         crn = class_entry["courseReferenceNumber"]
         async with asyncio.TaskGroup() as tg:
@@ -133,26 +152,16 @@ async def process_class_details(
                         )
                     restriction_name_code_map[restriction_name] = restriction_code
 
-        # Example course code: CSCI 1100
-        course_data[course_code] = {
-            "course_name": class_entry["courseTitle"],
-            "course_detail": {
-                "description": description_data,
-                "corequisite": corequisites_data,
-                "prerequisite": prerequisites_data,
-                "crosslist": crosslists_data,
-                "attributes": attributes_data,
-                "restrictions": restrictions_data,
-                "credits": {
-                    "min": float("inf"),
-                    "max": 0,
-                },
-                "sections": [],
-            },
-        }
+        # Initialize course entry with details
+        course_entry = course_data[course_code]
+        course_entry["description"] = description_data
+        course_entry["attributes"] = attributes_data
+        course_entry["restrictions"] = restrictions_data
+        course_entry["prerequisite"] = prerequisites_data
+        course_entry["corequisite"] = corequisites_data
+        course_entry["crosslist"] = crosslists_data
 
-    course_data = course_data[course_code]
-    course_details = course_data["course_detail"]
+    course_details = course_data[course_code]["course_detail"]
 
     course_credits = course_details["credits"]
     course_credits["min"] = min(
