@@ -252,7 +252,9 @@ async def get_course_data(
     """
     async with semaphore:
         # Limit simultaneous connections to SIS server per session
-        connector = aiohttp.TCPConnector(limit_per_host=limit_per_host)
+        connector = aiohttp.TCPConnector(
+            ttl_dns_cache=500, limit_per_host=limit_per_host
+        )
         timeout = aiohttp.ClientTimeout(total=timeout)
 
         async with aiohttp.ClientSession(
