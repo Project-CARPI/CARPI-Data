@@ -7,7 +7,8 @@ from typing import Any
 
 import aiohttp
 import bs4
-from prereq_parser import parse_prereq
+
+# from prereq_parser import parse_prereq
 
 RESTRICTION_TYPE_MAP = {
     "Majors": "major",
@@ -442,40 +443,40 @@ async def get_class_prerequisites(
     """
     url = "https://sis9.rpi.edu/StudentRegistrationSsb/ssb/searchResults/getSectionPrerequisites"
     params = {"term": term, "courseReferenceNumber": crn}
-    async with session.get(url, params=params) as response:
-        response.raise_for_status()
-        text = await response.text()
-    text = html.unescape(text)
-    soup = bs4.BeautifulSoup(text, "html5lib")
-    data = ""
-    rows = soup.find_all("tr")
-    for row in rows:
-        cols = row.find_all("td")
-        if len(cols) == 0:
-            continue
-        data += (
-            " and " if cols[0].text == "And" else " or " if cols[0].text == "Or" else ""
-        )
-        data += " ( " if cols[1].text != "" else ""
-        if cols[2].text != "":
-            data += f" {cols[2].text} {cols[3].text} "
-        else:
-            data += f" {cols[4].text} {cols[5].text} "
-        data += " ) " if cols[8].text != "" else ""
-        data = data.replace("  ", " ").strip()
-        data = data.replace("  ", " ").strip()
-        data = data.replace("( ", "(").strip()
-        data = data.replace(" )", ")").strip()
-    if data:
-        try:
-            return parse_prereq(term, crn, data)
-        except Exception as e:
-            logging.error(
-                f"Error parsing prerequisites for CRN {crn} in term {term} with data: {data}\n{e}"
-            )
-            import traceback
+    # async with session.get(url, params=params) as response:
+    #     response.raise_for_status()
+    #     text = await response.text()
+    # text = html.unescape(text)
+    # soup = bs4.BeautifulSoup(text, "html5lib")
+    # data = ""
+    # rows = soup.find_all("tr")
+    # for row in rows:
+    #     cols = row.find_all("td")
+    #     if len(cols) == 0:
+    #         continue
+    #     data += (
+    #         " and " if cols[0].text == "And" else " or " if cols[0].text == "Or" else ""
+    #     )
+    #     data += " ( " if cols[1].text != "" else ""
+    #     if cols[2].text != "":
+    #         data += f" {cols[2].text} {cols[3].text} "
+    #     else:
+    #         data += f" {cols[4].text} {cols[5].text} "
+    #     data += " ) " if cols[8].text != "" else ""
+    #     data = data.replace("  ", " ").strip()
+    #     data = data.replace("  ", " ").strip()
+    #     data = data.replace("( ", "(").strip()
+    #     data = data.replace(" )", ")").strip()
+    # if data:
+    #     try:
+    #         return parse_prereq(term, crn, data)
+    #     except Exception as e:
+    #         logging.error(
+    #             f"Error parsing prerequisites for CRN {crn} in term {term} with data: {data}\n{e}"
+    #         )
+    #         import traceback
 
-            traceback.print_exc()
+    #         traceback.print_exc()
     return {}
 
 
