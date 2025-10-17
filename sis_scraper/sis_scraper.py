@@ -429,17 +429,13 @@ async def main(
     # Convert paths to Path objects if given as strings
     if isinstance(output_data_dir, str):
         output_data_dir = Path(output_data_dir)
-    if attribute_code_name_map_path and isinstance(attribute_code_name_map_path, str):
+    if isinstance(attribute_code_name_map_path, str):
         attribute_code_name_map_path = Path(attribute_code_name_map_path)
-    if instructor_rcsid_name_map_path and isinstance(
-        instructor_rcsid_name_map_path, str
-    ):
+    if isinstance(instructor_rcsid_name_map_path, str):
         instructor_rcsid_name_map_path = Path(instructor_rcsid_name_map_path)
-    if restriction_code_name_map_path and isinstance(
-        restriction_code_name_map_path, str
-    ):
+    if isinstance(restriction_code_name_map_path, str):
         restriction_code_name_map_path = Path(restriction_code_name_map_path)
-    if subject_code_name_map_path and isinstance(subject_code_name_map_path, str):
+    if isinstance(subject_code_name_map_path, str):
         subject_code_name_map_path = Path(subject_code_name_map_path)
 
     start_time = time.time()
