@@ -97,9 +97,24 @@ if __name__ == "__main__":
 
     try:
         logs_dir = Path(__file__).parent / os.getenv("SCRAPER_LOGS_DIR")
-        output_data_dir = Path(__file__).parent / os.getenv("SCRAPER_OUTPUT_DATA_DIR")
-        code_mappings_dir = Path(__file__).parent / os.getenv(
-            "SCRAPER_CODE_MAPPINGS_DIR"
+        output_data_dir = Path(__file__).parent / os.getenv(
+            "SCRAPER_RAW_OUTPUT_DATA_DIR"
+        )
+        processed_data_dir = Path(__file__).parent / os.getenv(
+            "SCRAPER_PROCESSED_OUTPUT_DATA_DIR"
+        )
+        code_maps_dir = Path(__file__).parent / os.getenv("SCRAPER_CODE_MAPS_DIR")
+        attribute_code_name_map_path = code_maps_dir / os.getenv(
+            "ATTRIBUTE_CODE_NAME_MAP_FILENAME"
+        )
+        instructor_rcsid_name_map_path = code_maps_dir / os.getenv(
+            "INSTRUCTOR_RCSID_NAME_MAP_FILENAME"
+        )
+        restriction_code_name_map_path = code_maps_dir / os.getenv(
+            "RESTRICTION_CODE_NAME_MAP_FILENAME"
+        )
+        subject_code_name_map_path = code_maps_dir / os.getenv(
+            "SUBJECT_CODE_NAME_MAP_FILENAME"
         )
     except TypeError as e:
         print(
@@ -117,6 +132,9 @@ if __name__ == "__main__":
             output_data_dir=output_data_dir,
             start_year=start_year,
             end_year=end_year,
-            code_mappings_dir=code_mappings_dir,
+            attribute_code_name_map_path=attribute_code_name_map_path,
+            instructor_rcsid_name_map_path=instructor_rcsid_name_map_path,
+            restriction_code_name_map_path=restriction_code_name_map_path,
+            subject_code_name_map_path=subject_code_name_map_path,
         )
     )

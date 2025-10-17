@@ -335,14 +335,14 @@ async def get_term_course_data(
     logging.info(f"Processing {len(subjects)} subjects for term: {term}")
 
     # Stores all course data for the term
-    all_course_data = {}
+    term_course_data = {}
 
     # Process subjects in parallel, each with its own session
     tasks: list[asyncio.Task] = []
     async with asyncio.TaskGroup() as tg:
         for subject in subjects:
             subject_code = subject["code"]
-            all_course_data[subject_code] = {
+            term_course_data[subject_code] = {
                 "subject_name": subject["description"],
                 "courses": {},
             }
@@ -363,9 +363,9 @@ async def get_term_course_data(
     # Wait for all tasks to complete and gather results
     for i, subject in enumerate(subjects):
         course_data = tasks[i].result()
-        all_course_data[subject["code"]]["courses"] = course_data
+        term_course_data[subject["code"]]["courses"] = course_data
 
-    if len(all_course_data) == 0:
+    if len(term_course_data) == 0:
         return
 
     # Write all data for term to JSON file
@@ -374,7 +374,7 @@ async def get_term_course_data(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     logging.info(f"Writing data to {output_path}")
     with output_path.open("w", encoding="utf-8") as f:
-        json.dump(all_course_data, f, indent=4, ensure_ascii=False)
+        json.dump(term_course_data, f, indent=4, ensure_ascii=False)
 
 
 async def main(
@@ -382,7 +382,10 @@ async def main(
     start_year: int = 1998,
     end_year: int = dt.datetime.now().year,
     seasons: list[str] | None = None,
-    code_mappings_dir: Path | str | None = None,
+    attribute_code_name_map_path: Path | str | None = None,
+    instructor_rcsid_name_map_path: Path | str | None = None,
+    restriction_code_name_map_path: Path | str | None = None,
+    subject_code_name_map_path: Path | str | None = None,
     semaphore_val: int = 10,
     limit_per_host: int = 5,
     timeout: int = 120,
@@ -395,38 +398,29 @@ async def main(
     responsible for processing one subject.
 
     Course data including restrictions, attributes, instructor names, and subject names
-    are codified using code-to-name maps whose parent directory may be provided.
-    - If not provided, the maps will be constructed and stored only in memory during
+    are codified using code-to-name maps whose file paths may be provided. For each map
+    file path parameter:
+    - If not provided, the map will be constructed and stored only in memory during
     scraping.
-    - If provided but doesn't exist, the maps will be constructed and written to the
-    directory as JSON after scraping.
-    - If provided and does exist, the maps will be loaded from the directory before
+    - If provided but doesn't exist, the map will be constructed and written to the
+    file as JSON after scraping.
+    - If provided and does exist, the map will be loaded from the file before
     scraping and updated after scraping.
-
-    Examples of data that are codified include:
-    - "Communication Intensive" -> "COMM"
-    - "Computer Science" -> "CSCI"
-    - "Graduate" -> "GR"
-    - "Jane, Mary" -> "janem"
 
     @param output_data_dir: Directory to write term course data JSON files to.
     @param start_year: Starting year (inclusive) to scrape data for. Defaults to 1998.
     @param end_year: Ending year (inclusive) to scrape data for. Defaults to current year.
     @param seasons: List of academic seasons to scrape data for. Can be any combination of
         "spring", "summer", and "fall". If not specified, all three seasons will be processed.
-    @param code_mappings_dir: Directory to load/save code mapping JSON files.
+    @param attribute_code_name_map_path: Path to load/save attribute code mapping JSON file.
+    @param instructor_rcsid_name_map_path: Path to load/save instructor RCSID mapping JSON file.
+    @param restriction_code_name_map_path: Path to load/save restriction code mapping JSON file.
+    @param subject_code_name_map_path: Path to load/save subject code mapping JSON file.
     @param semaphore_val: Maximum number of concurrent client sessions to spawn.
     @param limit_per_host: Maximum number of simultaneous connections a session can make to the SIS server.
     @param timeout: Timeout in seconds for all requests made by a session.
     @return: True on success, False on any unhandled failure.
     """
-
-    # A JSESSIONID cookie is required before accessing any course data, which can be
-    # obtained on the first request to any SIS page. The cookie should automatically be
-    # included in subsequent requests made with the same aiohttp session.
-    #
-    # The term and subject search state on the SIS server must be reset before each attempt
-    # to fetch classes from a term and subject.
 
     if output_data_dir is None:
         logging.error("No data output directory specified")
@@ -435,19 +429,18 @@ async def main(
     # Convert paths to Path objects if given as strings
     if isinstance(output_data_dir, str):
         output_data_dir = Path(output_data_dir)
-    if code_mappings_dir and isinstance(code_mappings_dir, str):
-        code_mappings_dir = Path(code_mappings_dir)
-
-    # Ensure code mapping directory is a directory and not a file, if it exists
-    if (
-        code_mappings_dir
-        and code_mappings_dir.exists()
-        and not code_mappings_dir.is_dir()
+    if attribute_code_name_map_path and isinstance(attribute_code_name_map_path, str):
+        attribute_code_name_map_path = Path(attribute_code_name_map_path)
+    if instructor_rcsid_name_map_path and isinstance(
+        instructor_rcsid_name_map_path, str
     ):
-        logging.error(
-            f"Code mappings directory is not a directory: {code_mappings_dir}"
-        )
-        return False
+        instructor_rcsid_name_map_path = Path(instructor_rcsid_name_map_path)
+    if restriction_code_name_map_path and isinstance(
+        restriction_code_name_map_path, str
+    ):
+        restriction_code_name_map_path = Path(restriction_code_name_map_path)
+    if subject_code_name_map_path and isinstance(subject_code_name_map_path, str):
+        subject_code_name_map_path = Path(subject_code_name_map_path)
 
     start_time = time.time()
 
@@ -460,75 +453,57 @@ async def main(
     restriction_code_name_map = {}
     attribute_code_name_map = {}
 
-    subject_code_name_map_path = None
-    instructor_rcsid_name_map_path = None
-    restriction_code_name_map_path = None
-    attribute_code_name_map_path = None
+    # Load code maps for codifying scraped data in post-processing
+    try:
+        if attribute_code_name_map_path and attribute_code_name_map_path.exists():
+            with attribute_code_name_map_path.open("r", encoding="utf-8") as f:
+                attribute_code_name_map = json.load(f)
+            logging.info(
+                f"Loaded {len(attribute_code_name_map)} attribute code mappings from {attribute_code_name_map_path}"
+            )
+        elif attribute_code_name_map_path:
+            logging.info(
+                f"No existing attribute code mappings found at {attribute_code_name_map_path}"
+            )
 
-    if code_mappings_dir and code_mappings_dir.exists():
+        if instructor_rcsid_name_map_path and instructor_rcsid_name_map_path.exists():
+            with instructor_rcsid_name_map_path.open("r", encoding="utf-8") as f:
+                instructor_rcsid_name_map = json.load(f)
+            logging.info(
+                f"Loaded {len(instructor_rcsid_name_map)} instructor RCSID mappings from {instructor_rcsid_name_map_path}"
+            )
+        elif instructor_rcsid_name_map_path:
+            logging.info(
+                f"No existing instructor RCSID mappings found at {instructor_rcsid_name_map_path}"
+            )
 
-        subject_code_name_map_path = code_mappings_dir / "subject_code_name_map.json"
-        instructor_rcsid_name_map_path = (
-            code_mappings_dir / "instructor_rcsid_name_map.json"
-        )
-        restriction_code_name_map_path = (
-            code_mappings_dir / "restriction_code_name_map.json"
-        )
-        attribute_code_name_map_path = (
-            code_mappings_dir / "attribute_code_name_map.json"
-        )
+        if restriction_code_name_map_path and restriction_code_name_map_path.exists():
+            with restriction_code_name_map_path.open("r", encoding="utf-8") as f:
+                restriction_code_name_map = json.load(f)
+            logging.info(
+                f"Loaded {len(restriction_code_name_map)} restriction code mappings from {restriction_code_name_map_path}"
+            )
+        elif restriction_code_name_map_path:
+            logging.info(
+                f"No existing restriction code mappings found at {restriction_code_name_map_path}"
+            )
 
-        try:
-            # Load code maps for codifying scraped data in post-processing
-            if subject_code_name_map_path.exists():
-                with subject_code_name_map_path.open("r", encoding="utf-8") as f:
-                    subject_code_name_map = json.load(f)
-                logging.info(
-                    f"Loaded {len(subject_code_name_map)} subject code mappings from {subject_code_name_map_path}"
-                )
-            else:
-                logging.info(
-                    f"No existing subject code mappings found at {subject_code_name_map_path}"
-                )
+        if subject_code_name_map_path and subject_code_name_map_path.exists():
+            with subject_code_name_map_path.open("r", encoding="utf-8") as f:
+                subject_code_name_map = json.load(f)
+            logging.info(
+                f"Loaded {len(subject_code_name_map)} subject code mappings from {subject_code_name_map_path}"
+            )
+        elif subject_code_name_map_path:
+            logging.info(
+                f"No existing subject code mappings found at {subject_code_name_map_path}"
+            )
+    except Exception as e:
+        logging.error(f"Error loading code mapping files: {e}")
+        import traceback
 
-            if instructor_rcsid_name_map_path.exists():
-                with instructor_rcsid_name_map_path.open("r", encoding="utf-8") as f:
-                    instructor_rcsid_name_map = json.load(f)
-                logging.info(
-                    f"Loaded {len(instructor_rcsid_name_map)} instructor RCSID mappings from {instructor_rcsid_name_map_path}"
-                )
-            else:
-                logging.info(
-                    f"No existing instructor RCSID mappings found at {instructor_rcsid_name_map_path}"
-                )
-
-            if restriction_code_name_map_path.exists():
-                with restriction_code_name_map_path.open("r", encoding="utf-8") as f:
-                    restriction_code_name_map = json.load(f)
-                logging.info(
-                    f"Loaded {len(restriction_code_name_map)} restriction code mappings from {restriction_code_name_map_path}"
-                )
-            else:
-                logging.info(
-                    f"No existing restriction code mappings found at {restriction_code_name_map_path}"
-                )
-
-            if attribute_code_name_map_path.exists():
-                with attribute_code_name_map_path.open("r", encoding="utf-8") as f:
-                    attribute_code_name_map = json.load(f)
-                logging.info(
-                    f"Loaded {len(attribute_code_name_map)} attribute code mappings from {attribute_code_name_map_path}"
-                )
-            else:
-                logging.info(
-                    f"No existing attribute code mappings found at {attribute_code_name_map_path}"
-                )
-        except Exception as e:
-            logging.error(f"Error loading code mapping files: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return False
+        traceback.print_exc()
+        return False
 
     # Limit concurrent client sessions and simultaneous connections
     semaphore = asyncio.Semaphore(semaphore_val)
@@ -568,46 +543,49 @@ async def main(
         traceback.print_exc()
         return False
 
-    # Write code maps to JSON files if code mappings directory is provided
-    if code_mappings_dir:
-        # Ensure code maps are sorted by key before writing
-        instructor_rcsid_name_map = dict(sorted(instructor_rcsid_name_map.items()))
-        subject_code_name_map = dict(sorted(subject_code_name_map.items()))
-        restriction_code_name_map = dict(sorted(restriction_code_name_map.items()))
-        attribute_code_name_map = dict(sorted(attribute_code_name_map.items()))
-
-        try:
-            code_mappings_dir.mkdir(parents=True, exist_ok=True)
-
+    # Write code maps to JSON files if code mapping paths are provided
+    try:
+        if attribute_code_name_map_path:
+            attribute_code_name_map_path.parent.mkdir(parents=True, exist_ok=True)
+            attribute_code_name_map = dict(sorted(attribute_code_name_map.items()))
             logging.info(
-                f"Writing {len(subject_code_name_map)} subject code mappings to {subject_code_name_map_path}"
+                f"Writing {len(attribute_code_name_map)} attribute code mappings to {attribute_code_name_map_path}"
             )
-            with subject_code_name_map_path.open("w", encoding="utf-8") as f:
-                json.dump(subject_code_name_map, f, indent=4, ensure_ascii=False)
+            with attribute_code_name_map_path.open("w", encoding="utf-8") as f:
+                json.dump(attribute_code_name_map, f, indent=4, ensure_ascii=False)
 
+        if instructor_rcsid_name_map_path:
+            instructor_rcsid_name_map_path.parent.mkdir(parents=True, exist_ok=True)
+            instructor_rcsid_name_map = dict(sorted(instructor_rcsid_name_map.items()))
             logging.info(
                 f"Writing {len(instructor_rcsid_name_map)} instructor RCSID mappings to {instructor_rcsid_name_map_path}"
             )
             with instructor_rcsid_name_map_path.open("w", encoding="utf-8") as f:
                 json.dump(instructor_rcsid_name_map, f, indent=4, ensure_ascii=False)
 
+        if restriction_code_name_map_path:
+            restriction_code_name_map_path.parent.mkdir(parents=True, exist_ok=True)
+            restriction_code_name_map = dict(sorted(restriction_code_name_map.items()))
             logging.info(
                 f"Writing {len(restriction_code_name_map)} restriction code mappings to {restriction_code_name_map_path}"
             )
             with restriction_code_name_map_path.open("w", encoding="utf-8") as f:
                 json.dump(restriction_code_name_map, f, indent=4, ensure_ascii=False)
 
+        if subject_code_name_map_path:
+            subject_code_name_map_path.parent.mkdir(parents=True, exist_ok=True)
+            subject_code_name_map = dict(sorted(subject_code_name_map.items()))
             logging.info(
-                f"Writing {len(attribute_code_name_map)} attribute code mappings to {attribute_code_name_map_path}"
+                f"Writing {len(subject_code_name_map)} subject code mappings to {subject_code_name_map_path}"
             )
-            with attribute_code_name_map_path.open("w", encoding="utf-8") as f:
-                json.dump(attribute_code_name_map, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            logging.error(f"Error writing code mapping files: {e}")
-            import traceback
+            with subject_code_name_map_path.open("w", encoding="utf-8") as f:
+                json.dump(subject_code_name_map, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        logging.error(f"Error writing code mapping files: {e}")
+        import traceback
 
-            traceback.print_exc()
-            return False
+        traceback.print_exc()
+        return False
 
     end_time = time.time()
     logging.info("SIS scraper completed")
